@@ -1,4 +1,7 @@
 # 👋 Kijae Hong (홍기재)
+📧 [E-mail](kijaehong1021@gmail.com) | 🐙 [Github](https://github.com/kijaehong) | 💼 [LinkedIn](https://www.linkedin.com/in/ki-jae-hong-5643b730a/) | 📚 [Google Scholar](https://scholar.google.com/citations?user=QHGq7GIAAAAJ&hl=ko) | 📖 [DBLP](https://dblp.org/pid/266/5820.html)
+
+---
 
 ## Introduction
 
@@ -10,15 +13,6 @@ Currently, I focus on building a high-frequency-trading system, building efficie
 
 
 현재는 초고빈도 매매(High-Frequency Trading) 시스템 개발, vLLM 및 쿠버네티스(Kubernetes)를 활용한 고성능 RAG 시스템 구축과 LLM 미세조정(Fine-tuning) 업무를 수행하고 있습니다. VLDB, SIGMOD 등 세계 최고 수준의 학회에 다수의 논문을 게재하고 관련 특허를 보유하는 등, 이론적 깊이와 실무적 구현 능력을 바탕으로 대규모 데이터 처리 시스템의 혁신을 추구합니다.
-
----
-## 📧 Contact
-
-- Email: kijaehong1021@gmail.com
-- GitHub: [@kijaehong](https://github.com/kijaehong)
-- LinkedIn: [@Ki-jae Hong](https://www.linkedin.com/in/ki-jae-hong-5643b730a/)
-- Location: Seoul, South Korea
-- Others: [Google Scholar](https://scholar.google.com/citations?user=QHGq7GIAAAAJ&hl=ko), [DBLP](https://dblp.org/pid/266/5820.html)
 
 ---
 ## 🔬 Ongoing Projects
