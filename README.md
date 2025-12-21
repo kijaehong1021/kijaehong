@@ -1,4 +1,4 @@
-# 👋 Kijae Hong
+# 👋 Kijae Hong (홍기재)
 
 ## Introduction
 
