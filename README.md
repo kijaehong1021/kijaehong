@@ -4,16 +4,14 @@
 
 I am a Researcher at Ceres Technologies and a Ph.D. graduate in Computer Science from POSTECH, specializing in the convergence of Database systems and Artificial Intelligence. My core expertise lies in GPU acceleration, Graph Data Analysis, and LLM serving optimization.
 
-포항공대(POSTECH) 컴퓨터공학과 박사 출신으로, 현재 세레스테크놀로지스(Ceres Technologies)에서 **데이터베이스와 AI 기술의 결합(DB+AI)**을 연구하고 있습니다. 주력 분야는 GPU 가속 기반의 데이터 처리, 그래프 데이터 분석, 그리고 LLM 서빙 및 추론 최적화입니다.
+포항공대(POSTECH) 컴퓨터공학과 박사 출신으로, 현재 세레스테크놀로지스(Ceres Technologies)에서 **데이터베이스와 AI 기술의 결합(DB+AI)** 을 연구하고 있습니다. 주력 분야는 GPU 가속 기반의 데이터 처리, 그래프 데이터 분석, 그리고 LLM 서빙 및 추론 최적화입니다.
 
 Currently, I focus on building a high-frequency-trading system, building efficient RAG systems, and optimizing LLM inference (vLLM, caching, scheduling). With a strong academic foundation demonstrated by publications in top-tier conferences like VLDB and SIGMOD, and a portfolio of patents in query processing and AI, I am dedicated to developing scalable, high-speed architectures for next-generation data processing.
 
 
 현재는 초고빈도 매매(High-Frequency Trading) 시스템 개발, vLLM 및 쿠버네티스(Kubernetes)를 활용한 고성능 RAG 시스템 구축과 LLM 미세조정(Fine-tuning) 업무를 수행하고 있습니다. VLDB, SIGMOD 등 세계 최고 수준의 학회에 다수의 논문을 게재하고 관련 특허를 보유하는 등, 이론적 깊이와 실무적 구현 능력을 바탕으로 대규모 데이터 처리 시스템의 혁신을 추구합니다.
 
-
 ---
-
 ## 📧 Contact
 
 - Email: kijaehong1021@gmail.com
@@ -22,6 +20,7 @@ Currently, I focus on building a high-frequency-trading system, building efficie
 - Location: Seoul, South Korea
 - Others: [Google Scholar](https://scholar.google.com/citations?user=QHGq7GIAAAAJ&hl=ko), [DBLP](https://dblp.org/pid/266/5820.html)
 
+---
 ## 🔬 Ongoing Projects
 
 ### [Maximizing LLM Caching](projects/llm_cache_maximization.md)
@@ -39,15 +38,21 @@ LLM을 활용해서 데이터베이스의 분석 가능 범위를 넓히기 위�
 ---
 
 ## 💼 Previous Projects
-
-### LLM Inference Scheduling
+<!-- 
+### T-R3X 
 TBD
+
+### RAG-based Customer Support System for 현대홈쇼핑
+TBD
+
+### Knowledge Management System
+TBD -->
 
 ### SLM-based Operator of RAG
 
 Amid the surging demand for RAG systems, I developed an SLM-based operator designed to execute core system functions with low latency and cost efficiency, a project supported by the Ministry of SMEs and Startups. I established a robust operational infrastructure by deploying vLLM-based inference services on Kubernetes and implementing auto-scaling tailored to workload fluctuations. Through this process, I acquired in-depth expertise in LLM fine-tuning techniques as well as serving infrastructure utilizing vLLM and Kubernetes.
 
-RAG 시스템의 수요가 급증함에 따라, 시스템의 핵심 기능을 저비용·저지연으로 수행할 수 있는 Small Language Model(SLM) 기반의 Operator를 중소벤처기업부 지원하에 개발했습니다. 또한, vLLM을 활용한 추론 서비스를 쿠버네티스 환경에 구축하고 워크로드에 따른 오토 스케일링을 구현하는 등 안정적인 운영 인프라를 마련했습니다. 이 과정을 통해 LLM 파인튜닝 기술은 물론, vLLM 및 쿠버네티스를 활용한 서빙 인프라 구축에 대한 심도 있는 역량을 확보했습니다. 
+RAG 시스템의 수요가 급증함에 따라, 시스템의 핵심 기능을 저비용·저지연으로 수행할 수 있는 Small Language Model(SLM) 기반의 operator들을 중소벤처기업부 지원하에 개발했습니다. 또한, vLLM을 활용한 추론 서비스를 쿠버네티스 환경에 구축하고 워크로드에 따른 오토 스케일링을 구현하는 등 안정적인 운영 인프라를 마련했습니다. 이 과정을 통해 LLM 파인튜닝 기술은 물론, vLLM 및 쿠버네티스를 활용한 서빙 인프라 구축에 대한 심도 있는 역량을 확보했습니다. 
 
 
 ### High Frequency Trading
