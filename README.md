@@ -29,7 +29,7 @@ With the rapid advancement of LLMs, there are emerging attempts to expand the sc
 
 LLM의 엄청난 발전 속도에 따라, LLM을 활용하여 데이터베이스의 데이터 분석 가능 범위를 더 넓히려는 시도들이 생겨나고 있습니다. 그리고 저는 이러한 환경에서, LLM 캐싱 테크닉들의 효과를 극대화하기 위해 어떤 방법이 있을지 탐구해보고 있습니다.
 
-### [Optimizing Semantic Operators in a Query Plan](https://github.com/kijaehong1021/SemanticOptimizerOptimizer)
+### [Optimizing Semantic Operators in a Query Plan](https://github.com/kijaehong1021/SemanticOperatorOptimizer)
 
 To broaden the analytical capabilities of databases, recent research is incorporating LLMs into database operators to 1) check specific conditions or 2) extract new attributes from records. However, since LLM inference is a highly costly operation, finding ways to minimize this overhead is essential, and this is a topic I am currently exploring with great interest.
 
