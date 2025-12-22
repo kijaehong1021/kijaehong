@@ -16,11 +16,14 @@ Currently, I focus on building a high-frequency-trading system, building efficie
 
 ### [Maximizing LLM Caching](https://github.com/kijaehong1021/LLMCachingBoost)
 
-With the rapid advancement of LLMs, there are emerging attempts to expand the scope of data analysis in databases by leveraging LLMs. I'm conducting research on optimizing LLM caching for this purpose.
+- Exploring methods to maximize the effectiveness of LLM caching techniques in environments where LLMs are used to expand the scope of data analysis in databases
+- **Tech Stack**: LLM, Caching, Database
 
 ### [Optimizing Semantic Operators in a Query Plan](https://github.com/kijaehong1021/SemanticOperatorOptimizer)
 
-To broaden the analytical capabilities of databases, recent research is incorporating LLMs into database operators to 1) check specific conditions or 2) extract new attributes from records. However, since LLM inference is a highly costly operation, finding ways to minimize this overhead is essential, and this is a topic I am currently exploring with great interest.
+- Research on extending database operators to check conditions and extract new attributes from records using LLM inference
+- Exploring optimization methods to minimize the overhead of costly LLM inference operations
+- **Tech Stack**: LLM, Query Optimization, Database Operators
 
 ---
 

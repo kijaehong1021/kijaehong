@@ -16,11 +16,14 @@
 
 ### [Maximizing LLM Caching](https://github.com/kijaehong1021/LLMCachingBoost)
 
-LLM의 엄청난 발전 속도에 따라, LLM을 활용하여 데이터베이스의 데이터 분석 가능 범위를 더 넓히려는 시도들이 생겨나고 있습니다. 그리고 저는 이러한 환경에서, LLM 캐싱 테크닉들의 효과를 극대화하기 위해 어떤 방법이 있을지 탐구해보고 있습니다.
+- LLM을 활용하여 데이터베이스의 데이터 분석 가능 범위를 넓히는 연환경에서 LLM 캐싱 테크닉의 효과 극대화 방법 탐구
+- **기술 스택**: LLM, Caching, Database
 
 ### [Optimizing Semantic Operators in a Query Plan](https://github.com/kijaehong1021/SemanticOperatorOptimizer)
 
-LLM을 활용해서 데이터베이스의 분석 가능 범위를 넓히기 위해, 최근 연구들은 database의 연산자들이 LLM inference를 통해 record에 대한 1) condition을 체크하거나, 2)새로운 attribute를 추출할 수 있도록 확장하고 있습니다. 하지만, LLM inference는 매우 비싼 연산이기 때문에 이를 최대한 줄이는 방안이 필요하며, 이는 제가 요즘 흥미롭게 탐구하고 있는 주제입니다.
+- Database 연산자들이 LLM inference를 통해 record에 대한 condition 체크 및 새로운 attribute 추출 기능 확장 연구
+- 비용이 높은 LLM inference를 최대한 줄이는 최적화 방안 탐구
+- **기술 스택**: LLM, Query Optimization, Database Operators
 
 ---
 
