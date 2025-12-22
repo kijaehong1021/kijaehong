@@ -38,31 +38,56 @@ TBD -->
 
 ### SLM-based Operator of RAG
 
-Amid the surging demand for RAG systems, I developed an SLM-based operator designed to execute core system functions with low latency and cost efficiency, a project supported by the Ministry of SMEs and Startups. I established a robust operational infrastructure by deploying vLLM-based inference services on Kubernetes and implementing auto-scaling tailored to workload fluctuations. Through this process, I acquired in-depth expertise in LLM fine-tuning techniques as well as serving infrastructure utilizing vLLM and Kubernetes.
+- Developed Small Language Model (SLM)-based operators to execute core RAG system functions with low cost and latency
+- Deployed vLLM-based inference services on Kubernetes and implemented auto-scaling based on workload fluctuations
+- Project supported by the Ministry of SMEs and Startups
+- **Tech Stack**: vLLM, Kubernetes, LLM Fine-tuning
 
 ### High Frequency Trading
 
-At Ceres Technologies, I developed a distributed and parallel processing system capable of collecting tens of thousands of market events per second to perform real-time price prediction and automated trading. This project, supported by the Ministry of SMEs and Startups, was engineered to handle high-volume traffic with stability and has been successfully deployed and operated for multiple client companies.
+- Developed a system for collecting tens of thousands of market events per second and performing real-time price prediction and automated trading
+- Designed a distributed and parallel processing system to handle large-scale traffic with stability
+- Successfully sold to and operated by multiple clients
+- Project supported by the Ministry of SMEs and Startups
+- **Tech Stack**: Distributed/Parallel Processing System, Real-time Data Processing, C++, WebSocket, CPython
 
 ### [GPU-accelerated Relational Query Execution Engine](https://www.vldb.org/pvldb/vol18/p426-han.pdf)
 
-During my doctoral studies, I conducted research on accelerating relational data analysis queries using GPUs, a distinct achievement that led to a publication in VLDB, a top-tier database conference. This research focused on resolving load imbalance issues—specifically inter-warp and intra-warp thread divergence—during parallel processing, ultimately achieving a query processing performance approximately 379 times faster than competing technologies. Through this research, I gained a profound understanding of GPU architecture and mastered various optimization techniques within the CUDA environment.
+- Conducted research on accelerating relational data analysis queries using GPUs
+- Resolved load imbalance issues (inter-warp and intra-warp thread divergence) during parallel processing
+- Achieved query processing performance approximately 379 times faster than competing technologies
+- Published in VLDB 2025
+- **Tech Stack**: GPU, CUDA, Parallel Processing Optimization
 
 ### [QaaD (query-as-a-data)](https://dl.acm.org/doi/abs/10.1145/3589279)
 
-I participated in the development of a system leveraging Apache Spark to efficiently process massive volumes of small queries. Diverging from the traditional Spark approach of splitting a single query into multiple sub-queries, I proposed and implemented a reverse strategy that merges numerous small queries into a single large-scale query for batch processing. Although I concluded my involvement prior to the paper publication to focus on GPU acceleration research, I was deeply involved in implementing the core logic and gained valuable experience in designing large-scale distributed processing systems.
+- Developed a system leveraging Apache Spark to efficiently process massive volumes of small queries
+- Proposed a reverse strategy: merging numerous small queries into a single large-scale query for batch processing (opposite of traditional Spark approach)
+- Deeply involved in implementing the core logic
+- Gained valuable experience in designing large-scale distributed processing systems
+- **Tech Stack**: Apache Spark, Distributed Processing System
 
 ### Product Search Engine
 
-I developed a distributed crawling framework that periodically collects product information from global e-commerce platforms and normalizes it into user-desired formats. Through this project, I gained practical experience in addressing challenges such as anti-crawling mechanisms and designing large-scale crawling architectures, while also acquiring background knowledge in Entity Matching technology to link data from disparate sources. I possess the technical insight that integrating modern LLM technologies into this workflow could have significantly enhanced data transformation and matching efficiency.
+- Developed a distributed crawling framework that periodically collects product information from global e-commerce platforms and normalizes it into user-desired formats
+- Addressed challenges such as anti-crawling mechanisms and designed large-scale crawling architectures
+- Acquired background knowledge in Entity Matching technology to link data from disparate sources
+- **Tech Stack**: Distributed Crawling Framework, Entity Matching
 
 ### [iturbograph](https://dl.acm.org/doi/abs/10.1145/3448016.3457243)
 
-I participated in the development of a distributed and parallel processing system that supports incremental updates for the results of massive graph analysis queries (e.g., PageRank, SCC, WCC, SSSP). My primary role involved conducting experiments and analyzing competing systems, which allowed me to build extensive experience in distributed and parallel computing environments utilizing technologies such as Rust and MPI.
+- Participated in developing a distributed and parallel processing system that supports incremental updates for the results of massive graph analysis queries (e.g., PageRank, SCC, WCC, SSSP)
+- Conducted experiments and analyzed competing systems
+- Published in SIGMOD 2021
+- **Tech Stack**: Rust, MPI, Distributed/Parallel Processing
 
 ### [G-CARE](https://www.researchgate.net/profile/Sourav-S-Bhowmick/publication/341750604_G-CARE_A_Framework_for_Performance_Benchmarking_of_Cardinality_Estimation_Techniques_for_Subgraph_Matching/links/5ee45f61a6fdcc73be780998/G-CARE-A-Framework-for-Performance-Benchmarking-of-Cardinality-Estimation-Techniques-for-Subgraph-Matching.pdf)
 
-I participated in a project proposing a benchmark for cardinality estimation techniques in subgraph matching and analyzing state-of-the-art (SOTA) methodologies. My main contribution was extending the query optimizer of RDF-3X, an RDF database, to support SOTA methods as plug-in modules. This experience provided me with deep insights into the fields of query optimization and cardinality estimation.
+- Participated in a project proposing a benchmark for cardinality estimation techniques in subgraph matching and analyzing SOTA methodologies
+- Extended the query optimizer of RDF-3X to support SOTA methods as plug-in modules
+- Gained deep insights into query optimization and cardinality estimation
+- Published in SIGMOD 2020
+- **Tech Stack**: RDF-3X, Query Optimizer, Cardinality Estimation
 
 <!-- ### SIMD-based B+-tree
 TBD -->
