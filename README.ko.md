@@ -6,9 +6,9 @@
 
 ## Introduction
 
-I am a Researcher at Ceres Technologies and a Ph.D. graduate in Computer Science from POSTECH, specializing in the convergence of Database systems and Artificial Intelligence. My core expertise lies in GPU acceleration, Graph Data Analysis, and LLM serving optimization.
+포항공대(POSTECH) 컴퓨터공학과 박사 출신으로, 현재 세레스테크놀로지스(Ceres Technologies)에서 **데이터베이스와 AI 기술의 결합(DB+AI)** 을 연구하고 있습니다. 주력 분야는 GPU 가속 기반의 데이터 처리, 그래프 데이터 분석, 그리고 LLM 서빙 및 추론 최적화입니다.
 
-Currently, I focus on building a high-frequency-trading system, building efficient RAG systems, and optimizing LLM inference (vLLM, caching, scheduling). With a strong academic foundation demonstrated by publications in top-tier conferences like VLDB and SIGMOD, and a portfolio of patents in query processing and AI, I am dedicated to developing scalable, high-speed architectures for next-generation data processing.
+현재는 초고빈도 매매(High-Frequency Trading) 시스템 개발, vLLM 및 쿠버네티스(Kubernetes)를 활용한 고성능 RAG 시스템 구축과 LLM 미세조정(Fine-tuning) 업무를 수행하고 있습니다. VLDB, SIGMOD 등 세계 최고 수준의 학회에 다수의 논문을 게재하고 관련 특허를 보유하는 등, 이론적 깊이와 실무적 구현 능력을 바탕으로 대규모 데이터 처리 시스템의 혁신을 추구합니다.
 
 ---
 
@@ -16,11 +16,11 @@ Currently, I focus on building a high-frequency-trading system, building efficie
 
 ### [Maximizing LLM Caching](https://github.com/kijaehong1021/LLMCachingBoost)
 
-With the rapid advancement of LLMs, there are emerging attempts to expand the scope of data analysis in databases by leveraging LLMs. I'm conducting research on optimizing LLM caching for this purpose.
+LLM의 엄청난 발전 속도에 따라, LLM을 활용하여 데이터베이스의 데이터 분석 가능 범위를 더 넓히려는 시도들이 생겨나고 있습니다. 그리고 저는 이러한 환경에서, LLM 캐싱 테크닉들의 효과를 극대화하기 위해 어떤 방법이 있을지 탐구해보고 있습니다.
 
 ### [Optimizing Semantic Operators in a Query Plan](https://github.com/kijaehong1021/SemanticOperatorOptimizer)
 
-To broaden the analytical capabilities of databases, recent research is incorporating LLMs into database operators to 1) check specific conditions or 2) extract new attributes from records. However, since LLM inference is a highly costly operation, finding ways to minimize this overhead is essential, and this is a topic I am currently exploring with great interest.
+LLM을 활용해서 데이터베이스의 분석 가능 범위를 넓히기 위해, 최근 연구들은 database의 연산자들이 LLM inference를 통해 record에 대한 1) condition을 체크하거나, 2)새로운 attribute를 추출할 수 있도록 확장하고 있습니다. 하지만, LLM inference는 매우 비싼 연산이기 때문에 이를 최대한 줄이는 방안이 필요하며, 이는 제가 요즘 흥미롭게 탐구하고 있는 주제입니다.
 
 ---
 
@@ -38,31 +38,56 @@ TBD -->
 
 ### SLM-based Operator of RAG
 
-Amid the surging demand for RAG systems, I developed an SLM-based operator designed to execute core system functions with low latency and cost efficiency, a project supported by the Ministry of SMEs and Startups. I established a robust operational infrastructure by deploying vLLM-based inference services on Kubernetes and implementing auto-scaling tailored to workload fluctuations. Through this process, I acquired in-depth expertise in LLM fine-tuning techniques as well as serving infrastructure utilizing vLLM and Kubernetes.
+- RAG 시스템의 핵심 기능을 저비용·저지연으로 수행할 수 있는 Small Language Model(SLM) 기반의 operator 개발
+- vLLM을 활용한 추론 서비스를 쿠버네티스 환경에 구축 및 워크로드에 따른 오토 스케일링 구현
+- 중소벤처기업부 지원 프로젝트
+- **기술 스택**: vLLM, Kubernetes, LLM Fine-tuning
 
 ### High Frequency Trading
 
-At Ceres Technologies, I developed a distributed and parallel processing system capable of collecting tens of thousands of market events per second to perform real-time price prediction and automated trading. This project, supported by the Ministry of SMEs and Startups, was engineered to handle high-volume traffic with stability and has been successfully deployed and operated for multiple client companies.
+- 초당 수만 건에 달하는 시장 이벤트 수집 및 실시간 가격 예측 및 매매 자동화 시스템 개발
+- 대규모 트래픽을 안정적으로 처리하도록 설계된 분산/병렬 처리 시스템
+- 다수의 고객에 성공적으로 판매되어 운용 중
+- 중소기업벤처부 지원 프로젝트
+- **기술 스택**: 분산/병렬 처리 시스템, 실시간 데이터 처리, C++, 웹소켓, CPython
 
 ### [GPU-accelerated Relational Query Execution Engine](https://www.vldb.org/pvldb/vol18/p426-han.pdf)
 
-During my doctoral studies, I conducted research on accelerating relational data analysis queries using GPUs, a distinct achievement that led to a publication in VLDB, a top-tier database conference. This research focused on resolving load imbalance issues—specifically inter-warp and intra-warp thread divergence—during parallel processing, ultimately achieving a query processing performance approximately 379 times faster than competing technologies. Through this research, I gained a profound understanding of GPU architecture and mastered various optimization techniques within the CUDA environment.
+- GPU 기반 관계형 데이터 분석 질의 가속화 연구 수행
+- 병렬 처리 과정에서 발생하는 워프 간, 워프 내 스레드 간의 부하 불균형(Load Imbalance) 문제 해결
+- 경쟁 기술 대비 약 379배 빠른 질의 처리 성능 달성
+- VLDB 2025 논문 게재
+- **기술 스택**: GPU, CUDA, 병렬 처리 최적화
 
 ### [QaaD (query-as-a-data)](https://dl.acm.org/doi/abs/10.1145/3589279)
 
-I participated in the development of a system leveraging Apache Spark to efficiently process massive volumes of small queries. Diverging from the traditional Spark approach of splitting a single query into multiple sub-queries, I proposed and implemented a reverse strategy that merges numerous small queries into a single large-scale query for batch processing. Although I concluded my involvement prior to the paper publication to focus on GPU acceleration research, I was deeply involved in implementing the core logic and gained valuable experience in designing large-scale distributed processing systems.
+- Apache Spark를 활용한 대량의 소규모 질의(Small Queries) 효율적 처리 시스템 개발
+- 기존 Spark의 역발상: 수많은 소규모 질의를 하나의 거대 질의로 병합하여 일괄 처리하는 기법 제안
+- 핵심 로직 구현에 깊이 관여
+- 대규모 분산 처리 시스템 설계 경험 확보
+- **기술 스택**: Apache Spark, 분산 처리 시스템
 
 ### Product Search Engine
 
-I developed a distributed crawling framework that periodically collects product information from global e-commerce platforms and normalizes it into user-desired formats. Through this project, I gained practical experience in addressing challenges such as anti-crawling mechanisms and designing large-scale crawling architectures, while also acquiring background knowledge in Entity Matching technology to link data from disparate sources. I possess the technical insight that integrating modern LLM technologies into this workflow could have significantly enhanced data transformation and matching efficiency.
+- 글로벌 전자상거래 업체들의 상품 정보 주기적 수집 및 데이터 포맷 정규화 분산 크롤링 프레임워크 개발
+- 크롤링 방지(Anti-crawling) 대응 및 대규모 크롤링 아키텍처 설계
+- 서로 다른 출처의 데이터를 연결하는 Entity Matching 기술 습득
+- **기술 스택**: 분산 크롤링 프레임워크, Entity Matching
 
 ### [iturbograph](https://dl.acm.org/doi/abs/10.1145/3448016.3457243)
 
-I participated in the development of a distributed and parallel processing system that supports incremental updates for the results of massive graph analysis queries (e.g., PageRank, SCC, WCC, SSSP). My primary role involved conducting experiments and analyzing competing systems, which allowed me to build extensive experience in distributed and parallel computing environments utilizing technologies such as Rust and MPI.
+- 초거대 그래프 분석 질의(i.e., PageRank, SCC, WCC, SSSP) 결과에 대한 점진적 업데이트를 지원하는 분산/병렬 처리 시스템 개발
+- 경쟁 시스템에 대한 실험 및 분석 수행
+- SIGMOD 2021 논문 게재
+- **기술 스택**: Rust, MPI, 분산/병렬 처리
 
 ### [G-CARE](https://www.researchgate.net/profile/Sourav-S-Bhowmick/publication/341750604_G-CARE_A_Framework_for_Performance_Benchmarking_of_Cardinality_Estimation_Techniques_for_Subgraph_Matching/links/5ee45f61a6fdcc73be780998/G-CARE-A-Framework-for-Performance-Benchmarking-of-Cardinality-Estimation-Techniques-for-Subgraph-Matching.pdf)
 
-I participated in a project proposing a benchmark for cardinality estimation techniques in subgraph matching and analyzing state-of-the-art (SOTA) methodologies. My main contribution was extending the query optimizer of RDF-3X, an RDF database, to support SOTA methods as plug-in modules. This experience provided me with deep insights into the fields of query optimization and cardinality estimation.
+- 서브그래프 매칭 결과의 수를 예측하는 방법론들을 위한 벤치마크 제안 및 SOTA 방법 분석
+- RDF-3X의 query optimizer를 확장하여 SOTA 방법들을 플러그인 형태로 사용 가능하도록 구현
+- Query optimizer와 cardinality estimation 분야에 대한 인사이트 확보
+- SIGMOD 2020 논문 게재
+- **기술 스택**: RDF-3X, Query Optimizer, Cardinality Estimation
 
 <!-- ### SIMD-based B+-tree
 TBD -->
