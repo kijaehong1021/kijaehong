@@ -17,7 +17,7 @@ Currently, I focus on building a high-frequency-trading system, building efficie
 ### [Maximizing LLM Caching](https://github.com/kijaehong1021/LLMCachingBoost)
 
 - Exploring methods to maximize the effectiveness of LLM caching techniques in environments where LLMs are used to expand the scope of data analysis in databases
-- **Tech Stack**: LLM, Caching, Database
+- **Tech Stack**: LLM, LMCache, vLLM, SGLang, Caching, Database
 
 ### [Optimizing Semantic Operators in a Query Plan](https://github.com/kijaehong1021/SemanticOperatorOptimizer)
 
