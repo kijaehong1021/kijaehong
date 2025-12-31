@@ -8,7 +8,7 @@
 
 포항공대(POSTECH) 컴퓨터공학과 박사 출신으로, 현재 세레스테크놀로지스(Ceres Technologies)에서 **데이터베이스와 AI 기술의 결합(DB+AI)** 을 연구하고 있습니다. 주력 분야는 GPU 가속 기반의 데이터 처리, 그래프 데이터 분석, 그리고 LLM 서빙 및 추론 최적화입니다.
 
-현재는 초고빈도 매매(High-Frequency Trading) 시스템 개발, vLLM 및 쿠버네티스(Kubernetes)를 활용한 고성능 RAG 시스템 구축과 LLM 미세조정(Fine-tuning) 업무를 수행하고 있습니다. VLDB, SIGMOD 등 세계 최고 수준의 학회에 다수의 논문을 게재하고 관련 특허를 보유하는 등, 이론적 깊이와 실무적 구현 능력을 바탕으로 대규모 데이터 처리 시스템의 혁신을 추구합니다.
+현재는 초고빈도 매매(High-Frequency Trading) 시스템 개발, vLLM 및 쿠버네티스(Kubernetes)를 활용한 고성능 RAG 시스템 구축과 LLM 미세조정(Fine-tuning) 업무를 수행하고 있습니다. VLDB, SIGMOD 등 세계 최고 수준의 학회에 다수의 논문을 게재하고 관련 특허를 보유하는 등, 이론적 깊이와 실무적 구현 능력을 바탕으로 대규모 데이터 처리 시스템의 혁신을 추구합니다. 최근에는 LLM inference 스케줄링, KV 캐싱 등에 대한 연구를 진행하고 있습니다.
 
 ---
 
@@ -16,8 +16,8 @@
 
 ### [Maximizing LLM Caching](https://github.com/kijaehong1021/LLMCachingBoost)
 
-- LLM을 활용하여 데이터베이스의 데이터 분석 가능 범위를 넓히는 연환경에서 LLM 캐싱 테크닉의 효과 극대화 방법 탐구
-- **기술 스택**: LLM, Caching, Database
+- LLM을 활용하여 데이터베이스의 데이터 분석 가능 범위를 넓히는 환경에서 LLM 캐싱 테크닉의 효과 극대화 방법 탐구
+- **기술 스택**: LLM, LMCache, SGLang, LMCache Caching, Database
 
 ### [Optimizing Semantic Operators in a Query Plan](https://github.com/kijaehong1021/SemanticOperatorOptimizer)
 
@@ -38,6 +38,10 @@ TBD
 
 ### Knowledge Management System
 TBD -->
+### LLM Inference Scheduling
+- LLM Inference의 스케줄링 방법들을 평가하고 성능 개선 방향 제시
+- vLLM의 스케줄러를 수정하여 사용자가 입력한대로 inference를 수행 가능하도록 구현
+- **기술 스택**: vLLM, sarathi
 
 ### SLM-based Operator of RAG
 
