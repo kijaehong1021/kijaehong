@@ -17,7 +17,7 @@
 ### [Maximizing LLM Caching](https://github.com/kijaehong1021/LLMCachingBoost)
 
 - LLM을 활용하여 데이터베이스의 데이터 분석 가능 범위를 넓히는 환경에서 LLM 캐싱 테크닉의 효과 극대화 방법 탐구
-- **기술 스택**: LLM, LMCache, SGLang, LMCache Caching, Database
+- **기술 스택**: LLM, LMCache, SGLang, LMCache, Database
 
 ### [Optimizing Semantic Operators in a Query Plan](https://github.com/kijaehong1021/SemanticOperatorOptimizer)
 
