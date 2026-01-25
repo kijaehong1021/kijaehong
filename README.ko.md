@@ -32,11 +32,16 @@
 ### T-R3X
 TBD
 
-### RAG-based Customer Support System for 현대홈쇼핑
-TBD
+
 
 ### Knowledge Management System
 TBD -->
+
+### RAG-based Customer Support System for 현대홈쇼핑
+- 현대홈쇼핑의 Seller들에 대한 RAG기반의 질의응답 시스템 개발
+- 데이터 전처리(청킹, 임베딩), 벡터 서치 엔진에 기반한 1차 필터링, LM을 활용한 reranking, LLM을 활용한 답변 생성 시스템 개발
+- **기술 스택**: 벡터 서치(HNSW등의 알고리즘, hybrid search, ElasticSearch, Milvus 등의 프레임워크)
+
 ### LLM Inference Scheduling
 - LLM Inference의 스케줄링 방법들을 평가하고 성능 개선 방향 제시
 - vLLM의 스케줄러를 수정하여 사용자가 입력한대로 inference를 수행 가능하도록 구현
