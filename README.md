@@ -25,6 +25,11 @@ Currently, I focus on building a high-frequency-trading system, building efficie
 - Exploring optimization methods to minimize the overhead of costly LLM inference operations
 - **Tech Stack**: LLM, Query Optimization, Database Operators
 
+### Electronic Design Automation - In-Cell Placer
+- Research on optimizing transistor placement algorithms in electronic design automation
+- Optimizing placement algorithm using CPU (10x speedup and 0.2x memory usage) and GPU (100x speedup)
+- **Tech Stac**: EDA, parallel programming, GPU optimization
+
 ---
 
 ## 💼 Previous Projects
