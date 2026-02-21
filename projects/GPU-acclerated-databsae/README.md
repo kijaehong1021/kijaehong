@@ -1,5 +1,22 @@
 # GPU-accelerated Database
 
+## CPU architectures
+
+### GPU Architecture and Memory Hierarchy
+Let’s begin with the GPU architecture. It consists of a massive number of GPU cores, L2 cache, and Global Memory (GMEM). The physical computing units are organized into a hierarchy: GPCs, SMs, Processing Blocks, and individual GPU Cores. This hardware structure corresponds one-to-one with the logical hierarchy of Thread Block Clusters, Thread Blocks, Warps, and Threads.
+To support these units, the GPU provides a hierarchical memory system including registers, shared memory, and distributed shared memory. Specifically, threads in a warp can exchange data using warp-level primitives, while threads within a thread block share data via shared memory. Furthermore, threads across different blocks in a cluster can now share data through distributed shared memory.
+
+### Volta Architecture
+In the Volta architecture, several new concepts were introduced. First, Volta introduces independent thread scheduling and cooperative groups with a per-thread program counter and stack. These concepts enable finer-grained concurrent execution. For example, when threads in a warp wait for data loading, other threads in the same warp can execute other instructions. In previous architectures, these threads were required to wait for the data loading.
+Second, NVLink and Unified Memory were introduced. NVLink serves as a high-bandwidth interconnect between GPUs and the CPU, overcoming the throughput bottlenecks of PCIe. Unified Memory allows for a single unified virtual address space for CPU and GPU memory. With Unified Memory, programmers no longer need to manually manage data sharing between CPU and GPU memory systems, although manual management remains an option for high performance.
+
+### Ampere and Hopper Architectures
+In the Ampere architecture, NVIDIA introduced a new asynchronous copy instruction that loads data directly from global memory into SM shared memory.
+In the Hopper architecture, thread block clusters and distributed shared memory were introduced. These new computing units and the efficient data-sharing method enable applications to accelerate by avoiding memory accesses to global memory.
+The Tensor Memory Accelerator (TMA) is another feature. TMA improves data fetch efficiency by transferring large blocks of data and multi-dimensional tensors between global and shared memory. By handling address generation and data movement in hardware, TMA reduces addressing overhead and frees threads to execute other independent work. Additionally, DPX instructions allow for the efficient processing of core operations, such as addition and finding the maximum, in dynamic programming implementations.
+
+#### Blackwell Architecture
+Finally, in the Blackwell architecture, the decompression engine is a key feature. This engine enables a reduction in the cost of data movement between the CPU and GPUs.
 
 ## GPU architecture white papers
 - Ampere: https://images.nvidia.com/aem-dam/en-zz/Solutions/data-center/nvidia-ampere-architecture-whitepaper.pdf
@@ -7,29 +24,7 @@
 - Blackwell: https://resources.nvidia.com/en-us-blackwell-architecture
 
 
-### Ampere
-- Asynchronous Copy
-- Asynchronous Barrier
-- Task Graph Acceleration
-- Multi-instance GPU
-
-### Hopper
-- DPX instructions for dynamic programming algorithms
-- Thread block cluster and distributed shared memory
-- Tensor Memory Accelerator (TMA, shared meomry <-> global memory)
-
-### Blackwell
-- Decompression Engine
-- Reliability, Availability, and Serviceability (RAS) Engine
-
 ## Papers
-
-### Scan
-
-### Join
-
-### Group-by 
-
 
 ### VLDB
 - [GpJSON: High-performance JSON Data Processing on GPUs (VLDB)](https://www.vldb.org/pvldb/vol18/p3216-bonetta.pdf)
@@ -56,3 +51,10 @@
 
 ### arxiv
 - [GPU Acceleration of SQL Analytics on Compressed Data](https://arxiv.org/pdf/2506.10092)
+
+
+### Scan
+
+### Join
+
+### Group-by 
