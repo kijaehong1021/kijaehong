@@ -154,6 +154,19 @@ status (RLE): [paid: 0~2,   unpaid: 3~6,  paid: 7~9]
 
 → "Seoul AND paid" = 0~2행. 구간 교집합(`range_intersect`)으로 계산해야 함.
 
+**RLE mask는 True 구간만 저장**: False는 묵시적으로 나머지 전부. 따라서 AND = True 구간끼리의 교집합만 구하면 됨. True인 구간 수가 적을수록 연산량이 줄어드는 이유.
+
+**GPU에서 range_intersect가 빠른 이유**: `bucketize`(이진 탐색)를 c1의 모든 런에 대해 동시에 실행.
+
+```
+c1 런 100만 개, c2 런 100만 개일 때:
+
+CPU: c1 런 하나씩 순서대로 이진 탐색 → 100만 번 순차 실행
+GPU: 스레드 100만 개가 동시에 이진 탐색 → 한꺼번에 실행
+```
+
+`bucketize(c1.start, c2.end)` 한 줄이 텐서 연산이라 for 루프 없이 GPU 병렬 처리 가능. 실측: 100M 원소에서 CPU 대비 **21~46배** 빠름.
+
 입력 인코딩 조합에 따라 다른 구현 선택:
 
 | 입력 조합 | AND 구현 |
