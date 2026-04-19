@@ -37,7 +37,7 @@ Finally, in the Blackwell architecture, the decompression engine is a key featur
 | [ ] | [Powerful GPUs or Fast Interconnects: Analyzing Relational Workloads on Modern GPU (VLDB 2025)](https://www.vldb.org/pvldb/vol18/p4350-kabic.pdf) | [📄](papers/powerful_gpus_or_fast_interconnects_analyzing_relational_workloads_on_modern_gpu.md) |
 | [ ] | [Scaling GPU-Accelerated Databases beyond GPU Memory Size (VLDB 2025)](https://www.vldb.org/pvldb/vol18/p4518-li.pdf) | [📄](papers/scaling_gpu_accelerated_databases_beyond_gpu_memory_size.md) |
 | [ ] | [Efficiently Joining Large Relations on Multi-GPU Systems (VLDB 2025)](https://www.vldb.org/pvldb/vol18/p4653-maltenberger.pdf) | [📄](papers/efficiently_joining_large_relations_on_multi_gpu_systems.md) |
-| [ ] | [GPU Acceleration of SQL Analytics on Compressed Data (VLDB 2025)](https://doi.org/10.14778/3778092.3778095) | [📄](papers/gpu_acceleration_of_sql_analytics_on_compressed_data.md) |
+| [x] | [GPU Acceleration of SQL Analytics on Compressed Data (VLDB 2025)](https://doi.org/10.14778/3778092.3778095) | [📄](papers/gpu_acceleration_of_sql_analytics_on_compressed_data.md) |
 | [ ] | [Vortex: Overcoming Memory Capacity Limitations in GPU-Accelerated Data Analytics (VLDB 2024)](https://doi.org/10.14778/3717755.3717780) | [📄](papers/vortex_overcoming_memory_capacity_limitations_in_gpu_accelerated_data_analytics.md) |
 | [ ] | [SVFusion: A CPU-GPU Co-Processing Architecture for Large-Scale Real-Time Vector Search (VLDB 2026)](https://doi.org/10.14778/3796195.3796216) | [📄](papers/svfusion_cpu_gpu_co_processing_for_large_scale_real_time_vector_search.md) |
 | [ ] | [Everest: GPU-Accelerated System For Mining Temporal Motifs (VLDB 2024)](https://www.vldb.org/pvldb/vol17/p162-yuan.pdf) | - |
