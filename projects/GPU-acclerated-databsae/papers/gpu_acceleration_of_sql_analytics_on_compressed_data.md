@@ -177,6 +177,31 @@ GPU: 스레드 100만 개가 동시에 이진 탐색 → 한꺼번에 실행
 | Index AND Index | `idx_in_idx` (bucketize 기반) |
 | Plain AND Plain | PyTorch `&` 연산자 |
 
+**Index AND Index 상세 예시** (`idx_in_idx`):
+
+```
+mask1.pos = [0, 2, 4, 7]
+mask2.pos = [2, 4, 5, 7, 9]
+AND 결과  = [2, 4, 7]  (둘 다 True인 위치)
+```
+
+```python
+bin  = bucketize([0,2,4,7], [2,4,5,7,9], right=True) - 1
+     = [0,1,2,4] - 1
+     = [-1, 0, 1, 3]
+
+# bin이 가리키는 mask2 값과 실제로 같은지 확인
+# bin=-1 → False (범위 밖)
+# mask2[0]=2 == mask1[1]=2 → True
+# mask2[1]=4 == mask1[2]=4 → True
+# mask2[3]=7 == mask1[3]=7 → True
+
+mask = [False, True, True, True]
+결과 = mask1.pos[mask] = [2, 4, 7]
+```
+
+for 루프 없이 bucketize 한 번으로 모든 위치를 GPU에서 병렬 탐색.
+
 **RLE AND Plain의 변환 방향**: Plain→RLE 변환이 AND 연산은 빠르지만 변환 비용(4.29ms)이 RLE→Plain(1.02ms)보다 4배 이상 커서, RLE→Plain 방향이 전체적으로 4~10배 빠름.
 
 ### 산술/비교 연산: Alignment 필요
