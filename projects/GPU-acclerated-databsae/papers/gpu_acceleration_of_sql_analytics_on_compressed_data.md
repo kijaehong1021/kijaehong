@@ -270,11 +270,43 @@ Alignment 후:
 
 ### Join 연산
 
-기존 TQP의 hash join을 압축 컬럼으로 확장:
+기존 TQP의 hash join을 압축 컬럼으로 확장. 2단계로 처리:
 
-1. **Get Join Index**: 매칭되는 행 쌍의 인덱스 텐서 생성
-   - RLE 컬럼이 포함되면 1:N 또는 N:N 조인 → 런 길이만큼 인덱스 복제
-2. **Apply Join Index**: Join Index를 각 컬럼에 적용하여 결과 생성
+**1단계 - Get Join Index**: 매칭되는 행 쌍의 인덱스 찾기
+
+```sql
+SELECT * FROM R, S WHERE R.A = S.B
+```
+
+```
+R.A: [X, Y, Y]  (위치 0,1,2)
+S.B: [Y, Y, X]  (위치 0,1,2)
+```
+
+Hash join으로 매칭 후 Join Index 생성:
+```
+R_idx = [0, 1, 1, 2, 2]
+S_idx = [2, 0, 1, 0, 1]
+```
+
+**2단계 - Apply Join Index**: Join Index로 각 컬럼에서 값을 뽑아 결과 생성
+
+```
+S.C = [D, E, F]
+S.C[S_idx] = S.C[[2,0,1,0,1]] = [F, D, E, D, E]
+```
+
+**RLE 컬럼이 포함되면**: 런 하나가 여러 행을 대표하므로 매칭 시 런 길이만큼 인덱스 복제 필요
+
+```
+R.A (RLE): [X: 0~0, Y: 1~2]  (X 1행, Y 2행)
+S.B (RLE): [Y: 0~1, X: 2~2]  (Y 2행, X 1행)
+
+X런(1행) × X런(1행) = 1쌍
+Y런(2행) × Y런(2행) = 4쌍 (2×2)
+```
+
+→ `repeat_interleave`로 런 길이 곱만큼 인덱스 복제.
 
 ---
 
