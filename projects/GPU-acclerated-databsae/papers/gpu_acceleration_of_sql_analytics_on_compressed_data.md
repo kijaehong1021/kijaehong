@@ -135,6 +135,25 @@ return c_idx.pos[mask]
 
 ### 논리 연산 (AND, OR, NOT)
 
+**AND가 왜 필요한가?** SQL WHERE 절의 복합 조건이 AND로 변환됨:
+
+```sql
+SELECT * FROM orders WHERE region = 'Seoul' AND status = 'paid'
+```
+
+1. `region = 'Seoul'` → MaskColumn (True/False 배열)
+2. `status = 'paid'`  → MaskColumn
+3. 두 MaskColumn AND → 둘 다 True인 행만 선택
+
+**압축 데이터에서 AND가 어려운 이유**: 두 RLE 컬럼의 런 경계가 달라 단순 값 비교 불가.
+
+```
+region (RLE): [Seoul: 0~4,  Busan: 5~9]
+status (RLE): [paid: 0~2,   unpaid: 3~6,  paid: 7~9]
+```
+
+→ "Seoul AND paid" = 0~2행. 구간 교집합(`range_intersect`)으로 계산해야 함.
+
 입력 인코딩 조합에 따라 다른 구현 선택:
 
 | 입력 조합 | AND 구현 |
