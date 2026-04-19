@@ -217,15 +217,56 @@ RLE 컬럼끼리 더하기 등은 **런 경계가 맞지 않아** 직접 연산 
 
 **2단계 처리**:
 
-1. **Grouping**: `torch.unique`로 각 행을 그룹 ID에 매핑하는 inverse index 생성
-   - 단, 여러 컬럼이 다른 인코딩이면 먼저 Alignment 적용 필요
-2. **Aggregation**: `torch.scatter`로 그룹별 집계
+**1단계 - Grouping** (`torch.unique`): 각 행을 그룹 ID에 매핑하는 inverse index 생성
 
-**RLE 컬럼 집계 최적화**: 압축 해제 없이 런 길이(`len = end - start + 1`)를 직접 활용
-- COUNT: 런 길이 합산
-- SUM: `val * len` 합산
-- MIN/MAX: 값 텐서만 스캔 (런 길이 불필요)
-- AVG/STD: SUM과 COUNT의 후처리로 계산
+```sql
+SELECT region, SUM(amount) FROM orders GROUP BY region
+```
+
+```
+region 컬럼:   [Seoul, Seoul, Busan, Seoul, Busan]
+
+unique값:      [Busan, Seoul]   ← 정렬된 그룹 목록
+inverse index: [1, 1, 0, 1, 0] ← 각 행의 그룹 ID
+```
+
+**2단계 - Aggregation** (`torch.scatter`): inverse index 기준으로 그룹별 집계
+
+```
+amount:        [10,  20,  30,  40,  50]
+inverse index: [1,   1,   0,   1,   0 ]
+
+그룹 0 (Busan): 30 + 50 = 80
+그룹 1 (Seoul): 10 + 20 + 40 = 70
+```
+
+---
+
+**RLE 컬럼이 있을 때: Alignment 필요**
+
+런 경계가 다른 두 RLE 컬럼은 바로 집계 불가. 먼저 `range_intersect`로 경계를 통일:
+
+```
+region (RLE): [Seoul: 0~2, Busan: 3~4]
+amount (RLE): [10: 0~1,    20: 2~4   ]
+```
+
+Alignment 후:
+```
+구간   런길이  region  amount
+0~1     2     Seoul    10
+2~2     1     Seoul    20
+3~4     2     Busan    20
+```
+
+경계가 통일된 후 집계 (압축 해제 없이 런 길이 직접 활용):
+
+| 함수 | 계산 방법 |
+|---|---|
+| COUNT | 런 길이 합산 |
+| SUM | `val * 런길이` 합산 → Seoul: 10×2 + 20×1 = 40 |
+| MIN/MAX | val 텐서만 스캔 (런 길이 무시) |
+| AVG/STD | SUM과 COUNT의 후처리로 계산 |
 
 ### Join 연산
 
