@@ -103,6 +103,31 @@ run: (A, 10) + selection bitmap에서 해당 10개 중 1의 수 = POPCNT
 - 인덱스 컬럼: bit-packing / RLE 방식으로 컴팩션
 - 딕셔너리: 선택된 행에서 참조 안 되는 entry를 빈 값으로 교체 (인덱스 컬럼 수정 없이)
 
+**예시**:
+```
+원본 컬럼: ["apple", "banana", "apple", "cherry", "banana", "apple"]
+
+Dictionary Encoding:
+  딕셔너리:     { 0: "apple", 1: "banana", 2: "cherry" }
+  인덱스 컬럼:  [0, 1, 0, 2, 1, 0]  (2-bit packed)
+
+selection bitmap: [1, 0, 1, 0, 1, 0]  (행 0, 2, 4 선택)
+
+인덱스 컴팩션 (PEXT):
+  원본: [0, 1, 0, 2, 1, 0]
+  출력: [0,    0,    1   ]  → bit-packed
+
+딕셔너리 컴팩션:
+  선택된 행이 참조하는 인덱스: {0, 1}
+  참조 안 되는 인덱스: {2}
+
+  기존: { 0: "apple", 1: "banana", 2: "cherry" }
+  변환: { 0: "apple", 1: "banana", 2: ""       }  ← 2만 비움
+```
+
+인덱스 컬럼 값을 건드리지 않고 딕셔너리 entry만 비워서 전송량 감소.
+GPU는 동일한 인덱스로 딕셔너리 참조 (2번 참조하는 행이 없으니 빈 entry 무해).
+
 #### 혼합 인코딩 처리
 
 실제 컬럼은 RLE 구간 + bit-packing 구간이 섞여있음. run 단위로 각각 처리 후 빈 run 제거 + 인접 동일 인코딩 run 병합.
