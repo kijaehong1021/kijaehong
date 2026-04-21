@@ -30,36 +30,36 @@ Finally, in the Blackwell architecture, the decompression engine is a key featur
 
 ### VLDB
 
-| 완료 | 논문 | 정리 노트 |
-|:---:|---|:---:|
-| [ ] | [GpJSON: High-performance JSON Data Processing on GPUs (VLDB 2025)](https://www.vldb.org/pvldb/vol18/p3216-bonetta.pdf) | [📄](papers/gpjson_high_performance_json_data_processing_on_gpus.md) |
-| [ ] | [GRAPIN: Efficient Graph Data Access for Out-of-Memory GPU Streaming Graph Processing (VLDB 2025)](https://www.vldb.org/pvldb/vol18/p3854-wang.pdf) | [📄](papers/grapin_efficient_graph_data_access_for_out_of_memory_gpu_streaming_graph_processing.md) |
-| [ ] | [Powerful GPUs or Fast Interconnects: Analyzing Relational Workloads on Modern GPU (VLDB 2025)](https://www.vldb.org/pvldb/vol18/p4350-kabic.pdf) | [📄](papers/powerful_gpus_or_fast_interconnects_analyzing_relational_workloads_on_modern_gpu.md) |
-| [ ] | [Scaling GPU-Accelerated Databases beyond GPU Memory Size (VLDB 2025)](https://www.vldb.org/pvldb/vol18/p4518-li.pdf) | [📄](papers/scaling_gpu_accelerated_databases_beyond_gpu_memory_size.md) |
-| [ ] | [Efficiently Joining Large Relations on Multi-GPU Systems (VLDB 2025)](https://www.vldb.org/pvldb/vol18/p4653-maltenberger.pdf) | [📄](papers/efficiently_joining_large_relations_on_multi_gpu_systems.md) |
-| [x] | [GPU Acceleration of SQL Analytics on Compressed Data (VLDB 2025)](https://doi.org/10.14778/3778092.3778095) | [📄](papers/gpu_acceleration_of_sql_analytics_on_compressed_data.md) |
-| [ ] | [Vortex: Overcoming Memory Capacity Limitations in GPU-Accelerated Data Analytics (VLDB 2024)](https://doi.org/10.14778/3717755.3717780) | [📄](papers/vortex_overcoming_memory_capacity_limitations_in_gpu_accelerated_data_analytics.md) |
-| [ ] | [SVFusion: A CPU-GPU Co-Processing Architecture for Large-Scale Real-Time Vector Search (VLDB 2026)](https://doi.org/10.14778/3796195.3796216) | [📄](papers/svfusion_cpu_gpu_co_processing_for_large_scale_real_time_vector_search.md) |
-| [ ] | [Everest: GPU-Accelerated System For Mining Temporal Motifs (VLDB 2024)](https://www.vldb.org/pvldb/vol17/p162-yuan.pdf) | [📄](papers/everest_gpu_accelerated_system_for_mining_temporal_motifs.md) |
-| [ ] | [GPU Database Systems Characterization and Optimization (VLDB 2024)](https://www.vldb.org/pvldb/vol17/p441-cao.pdf) | [📄](papers/gpu_database_systems_characterization_and_optimization.md) |
-| [ ] | [RTIndeX: Exploiting Hardware-Accelerated GPU Raytracing for Database Indexing](https://arxiv.org/pdf/2303.01139) | [📄](papers/rtindex_exploiting_hardware_accelerated_gpu_raytracing_for_database_indexing.md) |
+| 완료 | 논문 | 노트 | PDF |
+|:---:|---|:---:|:---:|
+| [ ] | [GpJSON: High-performance JSON Data Processing on GPUs (VLDB 2025)](https://www.vldb.org/pvldb/vol18/p3216-bonetta.pdf) | [📄](papers/gpjson_high_performance_json_data_processing_on_gpus.md) | p3216-bonetta.pdf |
+| [ ] | [GRAPIN: Efficient Graph Data Access for Out-of-Memory GPU Streaming Graph Processing (VLDB 2025)](https://www.vldb.org/pvldb/vol18/p3854-wang.pdf) | [📄](papers/grapin_efficient_graph_data_access_for_out_of_memory_gpu_streaming_graph_processing.md) | p3854-wang.pdf |
+| [ ] | [Powerful GPUs or Fast Interconnects: Analyzing Relational Workloads on Modern GPU (VLDB 2025)](https://www.vldb.org/pvldb/vol18/p4350-kabic.pdf) | [📄](papers/powerful_gpus_or_fast_interconnects_analyzing_relational_workloads_on_modern_gpu.md) | p4350-kabic.pdf |
+| [ ] | [Scaling GPU-Accelerated Databases beyond GPU Memory Size (VLDB 2025)](https://www.vldb.org/pvldb/vol18/p4518-li.pdf) | [📄](papers/scaling_gpu_accelerated_databases_beyond_gpu_memory_size.md) | p4518-li.pdf |
+| [ ] | [Efficiently Joining Large Relations on Multi-GPU Systems (VLDB 2025)](https://www.vldb.org/pvldb/vol18/p4653-maltenberger.pdf) | [📄](papers/efficiently_joining_large_relations_on_multi_gpu_systems.md) | p4653-maltenberger.pdf |
+| [x] | [GPU Acceleration of SQL Analytics on Compressed Data (VLDB 2025)](https://doi.org/10.14778/3778092.3778095) | [📄](papers/gpu_acceleration_of_sql_analytics_on_compressed_data.md) | p320-sen.pdf |
+| [ ] | [Vortex: Overcoming Memory Capacity Limitations in GPU-Accelerated Data Analytics (VLDB 2024)](https://doi.org/10.14778/3717755.3717780) | [📄](papers/vortex_overcoming_memory_capacity_limitations_in_gpu_accelerated_data_analytics.md) | p1250-yuan.pdf |
+| [ ] | [SVFusion: A CPU-GPU Co-Processing Architecture for Large-Scale Real-Time Vector Search (VLDB 2026)](https://doi.org/10.14778/3796195.3796216) | [📄](papers/svfusion_cpu_gpu_co_processing_for_large_scale_real_time_vector_search.md) | p1074-yang.pdf |
+| [ ] | [Everest: GPU-Accelerated System For Mining Temporal Motifs (VLDB 2024)](https://www.vldb.org/pvldb/vol17/p162-yuan.pdf) | [📄](papers/everest_gpu_accelerated_system_for_mining_temporal_motifs.md) | - |
+| [ ] | [GPU Database Systems Characterization and Optimization (VLDB 2024)](https://www.vldb.org/pvldb/vol17/p441-cao.pdf) | [📄](papers/gpu_database_systems_characterization_and_optimization.md) | - |
+| [ ] | [RTIndeX: Exploiting Hardware-Accelerated GPU Raytracing for Database Indexing](https://arxiv.org/pdf/2303.01139) | [📄](papers/rtindex_exploiting_hardware_accelerated_gpu_raytracing_for_database_indexing.md) | - |
 
 ### SIGMOD
 
-| 완료 | 논문 | 정리 노트 |
-|:---:|---|:---:|
-| [ ] | [Efficiently Processing Joins and Grouped Aggregations on GPUs (SIGMOD 2025)](https://dl.acm.org/doi/pdf/10.1145/3709689) | [📄](papers/efficiently_processing_joins_and_grouped_aggregations_on_gpus.md) |
-| [ ] | [GPH: An Efficient and Effective Perfect Hashing Scheme for GPU Architectures (SIGMOD 2025)](https://dl.acm.org/doi/pdf/10.1145/3725406) | [📄](papers/gph_efficient_effective_perfect_hashing_scheme_for_gpu_architectures.md) |
-| [ ] | [GOLAP: A GPU-in-Data-Path Architecture for High-Speed OLAP (SIGMOD 2024)](https://doi.org/10.1145/3698812) | [📄](papers/golap_gpu_in_data_path_architecture_for_high_speed_olap.md) |
-| [ ] | [cuMatch: GPU-based worst-case optimal join for subgraph queries (SIGMOD 2025)](https://dl.acm.org/doi/pdf/10.1145/3725398) | [📄](papers/cumatch_gpu_based_worst_case_optimal_join_for_subgraph_queries.md) |
-| [ ] | [GPU-Accelerated Graph Cleaning with a Single Machine (SIGMOD 2025)](https://dl.acm.org/doi/pdf/10.1145/3725303) | [📄](papers/gpu_accelerated_graph_cleaning_with_a_single_machine.md) |
-| [ ] | [Efficient GPU-Accelerated Subgraph Matching (SIGMOD 2023)](https://dl.acm.org/doi/pdf/10.1145/3589326) | [📄](papers/efficient_gpu_accelerated_subgraph_matching.md) |
-| [ ] | [Distributed GPU Joins on Fast RDMA-capable Networks (SIGMOD 2023)](https://dl.acm.org/doi/pdf/10.1145/3588709) | [📄](papers/distributed_gpu_joins_on_fast_rdma_capable_networks.md) |
-| [ ] | [Triton Join: Efficiently Scaling to a Large Join State on GPUs with Fast Interconnects (SIGMOD 2022)](https://dl.acm.org/doi/pdf/10.1145/3514221.3517911) | [📄](papers/triton_join_efficiently_scaling_to_a_large_join_state_on_gpus.md) |
-| [ ] | [Evaluating Multi-GPU Sorting with Modern Interconnects (SIGMOD 2022)](http://dl.acm.org/doi/pdf/10.1145/3514221.3517842) | [📄](papers/evaluating_multi_gpu_sorting_with_modern_interconnects.md) |
-| [ ] | [GaccO - A GPU-accelerated OLTP DBMS (SIGMOD 2022)](https://dl.acm.org/doi/pdf/10.1145/3514221.3517876) | [📄](papers/gacco_gpu_accelerated_oltp_dbms.md) |
-| [ ] | [Tile-based Lightweight Integer Compression in GPU (SIGMOD 2022)](https://dl.acm.org/doi/pdf/10.1145/3514221.3526132) | [📄](papers/tile_based_lightweight_integer_compression_in_gpu.md) |
-| [ ] | [Graph Processing on GPUs: A Survey](https://dl.acm.org/doi/pdf/10.1145/3128571) | [📄](papers/graph_processing_on_gpus_a_survey.md) |
+| 완료 | 논문 | 노트 | PDF |
+|:---:|---|:---:|:---:|
+| [ ] | [Efficiently Processing Joins and Grouped Aggregations on GPUs (SIGMOD 2025)](https://dl.acm.org/doi/pdf/10.1145/3709689) | [📄](papers/efficiently_processing_joins_and_grouped_aggregations_on_gpus.md) | efficiently_processing_joins_and_grouped_aggregations_on_gpus.pdf |
+| [ ] | [GPH: An Efficient and Effective Perfect Hashing Scheme for GPU Architectures (SIGMOD 2025)](https://dl.acm.org/doi/pdf/10.1145/3725406) | [📄](papers/gph_efficient_effective_perfect_hashing_scheme_for_gpu_architectures.md) | 3725406.pdf |
+| [ ] | [GOLAP: A GPU-in-Data-Path Architecture for High-Speed OLAP (SIGMOD 2024)](https://doi.org/10.1145/3698812) | [📄](papers/golap_gpu_in_data_path_architecture_for_high_speed_olap.md) | 3698812.pdf |
+| [ ] | [cuMatch: GPU-based worst-case optimal join for subgraph queries (SIGMOD 2025)](https://dl.acm.org/doi/pdf/10.1145/3725398) | [📄](papers/cumatch_gpu_based_worst_case_optimal_join_for_subgraph_queries.md) | 3725398.pdf |
+| [ ] | [GPU-Accelerated Graph Cleaning with a Single Machine (SIGMOD 2025)](https://dl.acm.org/doi/pdf/10.1145/3725303) | [📄](papers/gpu_accelerated_graph_cleaning_with_a_single_machine.md) | 3725303.pdf |
+| [ ] | [Efficient GPU-Accelerated Subgraph Matching (SIGMOD 2023)](https://dl.acm.org/doi/pdf/10.1145/3589326) | [📄](papers/efficient_gpu_accelerated_subgraph_matching.md) | - |
+| [ ] | [Distributed GPU Joins on Fast RDMA-capable Networks (SIGMOD 2023)](https://dl.acm.org/doi/pdf/10.1145/3588709) | [📄](papers/distributed_gpu_joins_on_fast_rdma_capable_networks.md) | - |
+| [ ] | [Triton Join: Efficiently Scaling to a Large Join State on GPUs with Fast Interconnects (SIGMOD 2022)](https://dl.acm.org/doi/pdf/10.1145/3514221.3517911) | [📄](papers/triton_join_efficiently_scaling_to_a_large_join_state_on_gpus.md) | 3514221.3517911.pdf |
+| [ ] | [Evaluating Multi-GPU Sorting with Modern Interconnects (SIGMOD 2022)](http://dl.acm.org/doi/pdf/10.1145/3514221.3517842) | [📄](papers/evaluating_multi_gpu_sorting_with_modern_interconnects.md) | - |
+| [ ] | [GaccO - A GPU-accelerated OLTP DBMS (SIGMOD 2022)](https://dl.acm.org/doi/pdf/10.1145/3514221.3517876) | [📄](papers/gacco_gpu_accelerated_oltp_dbms.md) | - |
+| [ ] | [Tile-based Lightweight Integer Compression in GPU (SIGMOD 2022)](https://dl.acm.org/doi/pdf/10.1145/3514221.3526132) | [📄](papers/tile_based_lightweight_integer_compression_in_gpu.md) | 3514221.3526132.pdf |
+| [ ] | [Graph Processing on GPUs: A Survey](https://dl.acm.org/doi/pdf/10.1145/3128571) | [📄](papers/graph_processing_on_gpus_a_survey.md) | - |
 
 
 ### Scan
