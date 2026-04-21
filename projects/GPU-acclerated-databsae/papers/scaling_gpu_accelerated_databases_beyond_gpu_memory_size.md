@@ -70,11 +70,44 @@ selection bitmap(어떤 행이 선택됐는지)을 이용해 **압축된 값 배
 
 ### 인코딩별 컴팩션 구현
 
-**Bit-packing**: 값들이 byte 경계에 안 맞게 패킹됨. 선택된 값의 비트들을 추출해서 재조립. BMI의 `PEXT` 명령어로 byte 단위 병렬 추출.
+#### Bit-packing: PEXT + PDEP
 
-**RLE (Run-Length Encoding)**: `(값, 반복 횟수)` 형태. 선택된 행 범위와 run 범위의 교집합을 계산해 새 run 생성. 압축률 거의 유지.
+4-bit 값 8개가 64bit 워드에 빽빽하게 들어있는 상황. 값들이 byte 경계에 안 맞아 일반 명령어로 추출 불가.
 
-**Dictionary Encoding**: 딕셔너리는 그대로 두고, 코드 배열만 bit-packing 방식으로 컴팩션.
+**해결: x86 BMI 명령어**
+- `PEXT` (Parallel Bit Extract): mask 위치의 비트들을 뽑아서 하위 비트로 모음
+- `PDEP` (Parallel Bit Deposit): 하위 비트들을 mask 위치에 흩뿌림
+
+```
+Step 1: selection bitmap (1비트)을 값 bit-width만큼 확장
+        bit b → bbbb  (PDEP 두 번 + 빼기 트릭으로 구현)
+        예: selection 0b01000110 → extended 0x0F00F0F0
+
+Step 2: PEXT(bit-packed values, extended_bitmap)
+        → 선택된 값들만 하위 비트로 추출, 압축 포맷 그대로
+```
+
+64bit 워드 하나에서 최대 16개(4-bit 기준) 값을 **명령어 5개**로 처리. Intel/AMD 모두 지원.
+
+#### RLE: POPCNT
+
+`(값, 반복횟수)` run에서, 해당 range의 selection bitmap에서 1의 개수를 세면 끝.
+
+```
+run: (A, 10) + selection bitmap에서 해당 10개 중 1의 수 = POPCNT
+새 run: (A, POPCNT 결과)
+```
+
+#### Dictionary Encoding
+
+- 인덱스 컬럼: bit-packing / RLE 방식으로 컴팩션
+- 딕셔너리: 선택된 행에서 참조 안 되는 entry를 빈 값으로 교체 (인덱스 컬럼 수정 없이)
+
+#### 혼합 인코딩 처리
+
+실제 컬럼은 RLE 구간 + bit-packing 구간이 섞여있음. run 단위로 각각 처리 후 빈 run 제거 + 인접 동일 인코딩 run 병합.
+
+> bit-packing 컴팩션의 핵심 아이디어(PEXT/PDEP 활용)는 prior work [39]에서 가져온 것. 이 논문은 해당 기법을 CPU-only가 아닌 hybrid 실행 컨텍스트(압축 출력이 필요한 상황)에 적용한 것이 기여.
 
 ---
 
