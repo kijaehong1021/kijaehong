@@ -127,7 +127,7 @@ CPU의 `pclmulqdq` 전용 명령어 없이 GPU 커널로 직접 구현.
 
 ---
 
-## 데이터가 GPU 메모리보다 크면?
+## 파티셔닝 + 파이프라이닝 (GPU 메모리 한계 극복)
 
 파일을 **동일 크기 파티션**으로 나눠 여러 CUDA 스트림으로 파이프라인 처리:
 
@@ -137,15 +137,76 @@ CPU의 `pclmulqdq` 전용 명령어 없이 GPU 커널로 직접 구현.
 파티션 3:                          [로드]         → ...
 ```
 
-파티션 크기가 고정이라 대부분의 인덱스를 **미리 할당(pre-allocate)** 가능 → 동적 메모리 할당 최소화.
+### Pre-allocation의 핵심
+
+파티션 크기가 **고정**이라 대부분의 인덱스 크기를 미리 계산 가능:
+
+| 인덱스 | 크기 | 할당 방식 |
+|---|---|---|
+| Escape Index | 파티션 크기의 1/8 (1비트/바이트) | **미리 할당** |
+| Quote Index | 파티션 크기의 1/8 | **미리 할당** |
+| String Index | 파티션 크기의 1/8 | **미리 할당** |
+| Leveled Bitmap | 파티션 크기 × 쿼리 최대 depth / 8 | **미리 할당** |
+| Newline Index | 줄 수에 따라 가변 | 동적 할당 (2단계 커널) |
+
+Newline Index만 동적 할당이고 나머지는 전부 미리 할당 → GPU 커널 내부에서 동적 할당 거의 없음.
+
+### 쿼리 depth 최적화
+
+Leveled Bitmap은 JSONPath 쿼리를 정적 분석해서 **필요한 depth까지만** 저장. 쿼리보다 깊은 레벨은 아예 기록하지 않아 메모리 절약.
 
 ---
 
 ## 쿼리 엔진: JSONPath → 바이트코드
 
-JSONPath 쿼리를 **커스텀 바이트코드로 컴파일** → GPU에서 바이트코드 인터프리터로 실행.
+JSONPath 쿼리를 **커스텀 바이트코드로 컴파일** → GPU에서 바이트코드 인터프리터로 실행. **GPU에서 바이트코드 인터프리터를 돌린 첫 사례**.
 
-각 JSON 객체(줄)를 하나의 GPU 스레드가 처리. Python/JavaScript 바인딩 지원 (GraalVM).
+### 컴파일 과정
+
+JSONPath 표현식을 Lexer → AST → 바이트코드 순으로 변환:
+
+```
+$.users[?(@.lang == "en")]
+
+→ 바이트코드:
+MOVE_TO_KEY "users"   // Leveled Bitmap에서 "users" 키 탐색
+MOVE_DOWN             // L0 → L1로 depth 이동
+MOVE_TO_KEY "lang"    // L1에서 "lang" 키 탐색
+EXPRESSION_STRING_EQUALS "en"  // 값 비교
+STORE_RESULT          // 매칭된 줄 저장
+```
+
+### 바이트코드 명령어 종류
+
+| 분류 | 명령어 | 설명 |
+|---|---|---|
+| Index 탐색 | `MOVE_UP/DOWN` | depth 이동 |
+| | `MOVE_TO_KEY` | 특정 키 탐색 |
+| | `MOVE_TO_INDEX` | 배열 인덱스 이동 |
+| 제어 흐름 | `END` | 현재 줄 실행 종료 |
+| | `STORE_RESULT` | 결과 저장 |
+| 표현식 | `EXPRESSION_STRING_EQUALS` | 문자열 비교 |
+
+### 실행 방식
+
+각 GPU 스레드가 여러 JSON 줄을 담당. 줄마다 바이트코드 인터프리터를 실행:
+
+```
+1. Newline Index로 줄 시작 위치 확인
+2. MOVE_TO_KEY "users" → Leveled Bitmap L0 스캔
+3. MOVE_DOWN → L1로 이동
+4. MOVE_TO_KEY "lang" → L1 스캔
+5. EXPRESSION_STRING_EQUALS "en" → 원본 JSON에서 값 직접 비교
+6. 매칭되면 STORE_RESULT, 아니면 END
+```
+
+매칭 실패 시 즉시 종료 → 불필요한 처리 없음.
+
+### 현재 한계
+
+- 재귀 탐색(`$..author`) 미지원
+- 동적 배열 슬라이싱(`$.user[2:]`) 미지원
+- 입력 JSON이 well-formed이어야 함
 
 ---
 
