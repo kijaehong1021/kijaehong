@@ -122,6 +122,22 @@ PCIe 스트림: [probe chunk 1] → [probe chunk 2] → ...
 
 ---
 
+## 한계: N:1 Join에 최적화된 설계
+
+이 논문의 기술들은 암묵적으로 **star schema (dimension ↔ fact)** 구조를 가정:
+
+- **Bitvector filtering**: 작은 build side key로 큰 probe side 사전 필터링. dimension이 작고 fact가 클 때 효과적.
+- **Streaming**: build side 해시테이블이 GPU 메모리에 들어갈 만해야 작동.
+
+**N:N join (양쪽 다 큰 경우)**:
+- Bitvector selectivity 낮아 효과 없음
+- Build side도 GPU 메모리 초과 → partitioning 필요
+- 파티션 수만큼 스캔 반복 → 비용 증가
+
+논문 평가도 TPC-H (star/snowflake schema) 에만 집중. 실제 OLAP 워크로드 대부분이 N:1 패턴이라 실용적이지만, N:N에 대한 효과는 별도로 검증되지 않음.
+
+---
+
 ## 성능 결과
 
 - 벤치마크: TPC-H scale factor 1000 (1TB), 단일 A100 (80GB)
