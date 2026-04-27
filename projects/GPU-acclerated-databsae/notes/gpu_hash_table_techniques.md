@@ -33,7 +33,79 @@ CPU hash table을 그대로 GPU에 올리면 성능이 안 나옴. GPU 특성에
 
 ---
 
-## 2. Cuckoo Hashing (뻐꾸기 해싱)
+## 2. Robin Hood Hashing
+
+선형 탐사의 클러스터링 문제를 유지하되, **PSL(Probe Sequence Length)을 균등하게 분산**시켜 최악의 탐사 길이를 줄이는 기법.
+
+**PSL(k)**: 키 k가 현재 위치에서 자신의 홈 위치(`h(k)`)까지의 거리. 즉 집에서 얼마나 멀리 왔는지.
+
+```
+PSL(k) = 현재 저장 위치 - h(k)
+```
+
+### 삽입
+
+삽입 중 기존 항목의 PSL이 새 키의 PSL보다 **작으면** (집 근처에 편하게 있으면) 자리를 양보시킴 — "부자에게서 빼앗아 가난한 자에게 준다"는 Robin Hood 원칙.
+
+```
+삽입(k):
+  pos = h(k), psl = 0
+  반복:
+    if T[pos] == empty:
+      T[pos] = k  →  완료
+    if PSL(T[pos]) < psl:
+      k, T[pos] = T[pos], k   // 집 근처 항목이 자리 양보
+      psl = PSL(T[pos_이전])   // 쫓겨난 항목의 PSL로 교체
+    pos++, psl++
+```
+
+```
+예시 (테이블 크기=8):
+  A 삽입: h(A)=2 → T[2]=A (PSL=0)
+  B 삽입: h(B)=2 → T[2] 충돌, PSL(A)=0 == PSL(B)=0 → T[3]=B (PSL=1)
+  C 삽입: h(C)=2 → T[2] 충돌(PSL=0), T[3] 충돌(PSL(B)=1 < PSL(C)=1? No)
+          → T[4]=C (PSL=2)
+
+  D 삽입: h(D)=3 → T[3] 충돌, PSL(B)=1 < PSL(D)=0? No
+          → T[4]: PSL(C)=2 > PSL(D)=1 → D가 T[4] 차지, C 쫓겨남
+          → C는 T[5]로 이동 (PSL=3→1로 리셋 후 재탐사)
+
+결과: 어떤 키도 PSL이 비정상적으로 크지 않음 → 탐사 분산 균등화
+```
+
+### 조회
+
+선형 탐사에 **조기 종료** 조건 추가: 현재 슬롯의 항목 PSL이 내 PSL보다 작으면 그 뒤엔 절대 내 키가 없음.
+
+```
+조회(k):
+  pos = h(k), psl = 0
+  반복:
+    if T[pos] == k → 찾음
+    if T[pos] == empty → 없음
+    if PSL(T[pos]) < psl → 없음  ← Robin Hood 핵심: 탐사 조기 종료
+    pos++, psl++
+```
+
+이 조기 종료 덕분에 삭제도 lazy deletion 없이 깔끔하게 처리 가능 (backward shift deletion).
+
+### 선형 탐사 대비 효과
+
+| | 선형 탐사 | Robin Hood Hashing |
+|---|---|---|
+| 클러스터링 | 발생 | 발생 (구조는 동일) |
+| 탐사 길이 분산 | 매우 큼 | 최소화 |
+| 평균 탐사 횟수 | 동일 | 동일 |
+| 최악 탐사 횟수 | 매우 큼 | 크게 감소 |
+| 캐시 효율 | 좋음 | 좋음 (동일 구조) |
+
+> **핵심**: 평균은 같지만 분산이 줄어든다. GPU에서는 warp 내 최대 탐사 횟수가 warp 전체 지연을 결정하므로, 분산 감소가 실질적인 성능 향상으로 이어짐.
+
+**GPU에서의 활용**: WarpCore 라이브러리가 Robin Hood 기반 double hashing을 사용해서 CUDPP 대비 2.84× 성능을 달성 (HiPC 2020 best paper).
+
+---
+
+## 3. Cuckoo Hashing (뻐꾸기 해싱)
 
 ### 기본 아이디어 (Pagh & Rodler, 2001)
 
@@ -138,7 +210,7 @@ h1(C)=1, h2(C)=4  →  C 삽입: T[1] 충돌!
 
 ---
 
-## 3. Power-of-Two-Choice (두 후보 중 선택)
+## 4. Power-of-Two-Choice (두 후보 중 선택)
 
 삽입 시 두 버킷을 보고 **더 비어있는 쪽** 선택 → 자연스러운 부하 균형.
 
@@ -158,7 +230,7 @@ h1(C)=1, h2(C)=4  →  C 삽입: T[1] 충돌!
 
 ---
 
-## 4. Iceberg Hashing
+## 5. Iceberg Hashing
 
 두 계층 버킷으로 구성:
 
@@ -180,7 +252,7 @@ h1(C)=1, h2(C)=4  →  C 삽입: T[1] 충돌!
 
 ---
 
-## 5. Fingerprint 기반 메타데이터 최적화
+## 6. Fingerprint 기반 메타데이터 최적화
 
 버킷 전체를 읽기 전에 **fingerprint(해시의 일부 비트)로 미리 필터링**:
 
@@ -200,7 +272,7 @@ h1(C)=1, h2(C)=4  →  C 삽입: T[1] 충돌!
 
 ---
 
-## 6. Warp-Cooperative 설계 (GPU 핵심)
+## 7. Warp-Cooperative 설계 (GPU 핵심)
 
 GPU warp(32 스레드)가 **하나의 해시 오퍼레이션을 협력해서 처리**.
 
@@ -226,7 +298,7 @@ warp 내 32개 스레드가 각자 다른 키를 삽입하려 함
 
 ---
 
-## 7. Dynamic Resizing 전략
+## 8. Dynamic Resizing 전략
 
 정적 해시 테이블은 꽉 차면 전체를 새로 만들어야 함 (비용 큼). 동적 테이블의 세 가지 접근:
 
