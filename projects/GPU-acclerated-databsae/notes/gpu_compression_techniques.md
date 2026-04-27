@@ -190,60 +190,275 @@ join (두 테이블의 dictionary 컬럼):
 
 압축률이 높지만 해제에 복잡한 연산 필요. **CPU에서는 병목, GPU에서는 빠름**.
 
-| 알고리즘 | 압축률 | GPU 해제 속도 | 특징 |
-|---|---|---|---|
-| **LZ4** | 중간 (~2×) | 매우 빠름 | 딕셔너리 기반, 빠른 해제 우선 |
-| **Snappy** | 중간 (~2×) | 빠름 | Google 개발, 균형형 |
-| **ZStandard (ZStd)** | 높음 (~3×) | 빠름 | 현재 가장 많이 쓰임, 압축 레벨 조절 가능 |
-| **DEFLATE/gzip** | 높음 | 느림 | GPU에서 비효율 |
+| 알고리즘 | 압축률 | GPU 해제 속도 | CPU 해제 속도 | 특징 |
+|---|---|---|---|---|
+| **LZ4** | 중간 (~2×) | 매우 빠름 | 빠름 | 해제 속도 우선 설계 |
+| **Snappy** | 중간 (~2×) | 빠름 | 빠름 | Google 개발, 균형형 |
+| **ZStandard (ZStd)** | 높음 (~3×) | 빠름 | 중간 | 압축 레벨 조절 가능 (1~22) |
+| **DEFLATE/gzip** | 높음 (~3×) | 느림 | 느림 | GPU에서 비효율, 레거시 |
+| **Brotli** | 매우 높음 | 매우 느림 | 매우 느림 | 웹용, DB에선 미사용 |
 
-**LZ 계열 압축 원리**:
-```
-반복되는 패턴을 (오프셋, 길이) 참조로 대체
+---
 
-원본: "abcde abcde abcde"
-압축: "abcde " + (back_ref: offset=6, len=11)
-     → 앞에 나온 "abcde abcde"를 참조
-```
+### 2-1. LZ 계열 압축의 원리
 
-**GPU 해제의 어려움**:
-```
-LZ 해제는 본질적으로 순차적:
-  출력[i]은 출력[i - offset]에 의존
-  → 이전 출력이 없으면 현재 출력 계산 불가
-  → 직접 병렬화가 어려움
-
-해결책: 독립 청크 단위 병렬 해제
-  청크마다 별도로 압축 → 각 청크는 이전 청크와 독립
-  → warp/block 단위로 청크 병렬 해제
-  → 청크 크기가 작을수록 병렬성↑, 압축률↓ (트레이드오프)
-```
-
-### nvCOMP (NVIDIA 공식 라이브러리)
-
-NVIDIA가 제공하는 GPU 압축/해제 라이브러리. LZ4, Snappy, ZStd, DEFLATE, Cascaded, Bitcomp 등 지원.
+LZ4, Snappy, ZStd 모두 **LZ77** 알고리즘을 기반으로 함. 핵심 아이디어는 이미 나온 패턴을 다시 쓰지 않고 "앞에 있던 거 참조해"라는 포인터로 대체하는 것.
 
 ```
-// ZStd 해제 예시 (nvCOMP API)
+LZ77 개념:
+  슬라이딩 윈도우(최근 N바이트)를 유지
+  현재 위치에서 윈도우 안의 패턴과 일치하는 가장 긴 문자열 탐색
+
+원본: "abracadabra"
+       ^---- 앞에서 "abra"가 이미 나옴
+
+압축:
+  "abracad"  →  literal 7바이트
+  + (offset=7, length=4)  →  7바이트 뒤에서 4글자 복사
+
+해제:
+  "abracad" 출력
+  → 7바이트 뒤(=시작)에서 4글자 = "abra" 복사
+  결과: "abracadabra"
+```
+
+**토큰 구조 (LZ4 기준)**:
+```
+각 시퀀스 = [token 1바이트] [literal 길이 확장] [literal 데이터] [오프셋 2바이트] [match 길이 확장]
+
+token (1바이트):
+  상위 4비트: literal 길이 (0~14, 15면 다음 바이트에 연장)
+  하위 4비트: match 길이 - 4 (0~14, 15면 다음 바이트에 연장)
+
+예:
+  token = 0x31
+  → 상위 3 = literal 3바이트
+  → 하위 1 = match 5바이트 (1+4)
+  → [3바이트 literal] [2바이트 오프셋] [match 5바이트]
+```
+
+**해제 과정 (순차적)**:
+```
+반복:
+  1. token 읽기 → literal 길이, match 길이 파악
+  2. literal 바이트들을 출력 버퍼에 그대로 복사
+  3. 오프셋 읽기 → match_pos = 현재 출력 위치 - offset
+  4. 출력 버퍼[match_pos .. match_pos+length]를 현재 위치에 복사
+     ※ 자기 자신을 참조하는 경우도 있음 (overlapping copy)
+```
+
+---
+
+### 2-2. ZStandard (ZStd) 상세
+
+ZStd = LZ77 + **엔트로피 코딩** 결합. LZ4보다 압축률이 높은 이유가 여기 있음.
+
+**LZ4 vs ZStd 차이**:
+```
+LZ4:
+  literal → 그대로 저장 (무압축)
+  match   → (offset, length) 토큰
+
+ZStd:
+  literal → FSE(Finite State Entropy) 또는 Huffman으로 추가 압축
+  match   → ANS 코딩으로 추가 압축
+  → 같은 입력에서 더 높은 압축률
+```
+
+**FSE (Finite State Entropy)**:
+ANS(Asymmetric Numeral Systems) 기반 엔트로피 코딩. Huffman보다 이론적 한계에 더 가까운 압축률을 달성하면서 해제 속도도 빠름.
+
+```
+Huffman: 각 심볼에 정수 비트 수 배정 (예: 'a' → 3비트, 'b' → 5비트)
+         → 최적 비트 수가 비정수면 낭비 발생
+
+FSE/ANS: 상태 기계(state machine)로 심볼 인코딩
+         → 비정수 비트 배정 가능 → 이론적 최솟값(엔트로피)에 근접
+         → 해제: 상태 테이블 참조만으로 O(1)
+
+해제 속도: 테이블 룩업이라 매우 빠름 → GPU에서도 효율적
+```
+
+**ZStd 압축 레벨**:
+```
+레벨 1  (fastest): 압축률 ~2×, CPU 압축 ~500 MB/s
+레벨 3  (default): 압축률 ~3×, CPU 압축 ~200 MB/s
+레벨 19 (best):    압축률 ~5×, CPU 압축 ~10 MB/s
+
+해제 속도는 레벨과 무관하게 항상 빠름 (~1.5 GB/s on CPU, ~10 GB/s on GPU)
+→ 압축은 오프라인, 해제는 온라인 → 압축 시 시간 들여도 이득
+```
+
+---
+
+### 2-3. GPU 해제의 핵심 난제: 순차 의존성
+
+LZ 계열 해제는 본질적으로 순차적. 이게 GPU 병렬화의 최대 장벽.
+
+```
+해제 의존성 체인:
+
+출력[0..5]   = literal "abcdef"
+출력[6..9]   = 출력[0..3] 복사  ← 출력[0..5]가 있어야 계산 가능
+출력[10..13] = 출력[4..7] 복사  ← 출력[6..9]가 있어야 계산 가능
+...
+
+→ 스레드 B가 스레드 A의 출력에 의존
+→ A가 끝나야 B 시작 가능 → 순차 실행
+```
+
+**Overlapping copy 문제** (더 까다로운 케이스):
+```
+offset < length인 경우:
+  현재 출력 위치 = 100
+  offset = 3, length = 8
+
+  출력[100] = 출력[97]
+  출력[101] = 출력[98]
+  출력[102] = 출력[99]
+  출력[103] = 출력[100]  ← 방금 쓴 값을 다시 읽음!
+  출력[104] = 출력[101]  ← 방금 쓴 값을 다시 읽음!
+  ...
+
+→ memcpy로 한번에 처리 불가, 바이트 하나씩 순서대로 복사해야 함
+→ SIMD/vectorized copy 불가 → GPU 병렬화 더욱 어려움
+```
+
+---
+
+### 2-4. GPU 병렬 해제 전략
+
+#### 전략 1: 청크 단위 병렬 해제 (가장 일반적)
+
+압축 시 데이터를 **독립된 청크**로 나눠 각각 압축. 청크 간 back-reference 금지.
+
+```
+압축 시:
+  [청크0: 독립 압축] [청크1: 독립 압축] [청크2: 독립 압축] ...
+  청크 경계를 넘는 back-reference 없음
+
+해제 시:
+  GPU thread block 0 → 청크0 해제
+  GPU thread block 1 → 청크1 해제  (동시 실행!)
+  GPU thread block 2 → 청크2 해제
+  ...
+
+병렬성 = 청크 수 = 수천 ~ 수만 개 → GPU 활용률 극대화
+```
+
+**트레이드오프**:
+```
+청크 크기 크면: 압축률↑ (윈도우 크면 더 긴 패턴 탐색 가능), 병렬성↓
+청크 크기 작으면: 병렬성↑, 압축률↓ (짧은 윈도우 = 찾을 수 있는 반복 패턴 한정)
+
+일반적으로 64KB ~ 1MB 사이에서 결정
+nvCOMP 기본값: 64KB
+```
+
+#### 전략 2: 청크 내 warp 협력 해제
+
+청크 하나를 단일 스레드가 아닌 **warp(32 스레드)가 협력**해서 처리.
+
+```
+청크를 sub-sequence로 분할:
+  [seq0] [seq1] [seq2] ... (각 seq = literal + match 1개씩)
+
+2단계 처리:
+  1단계 (분석 패스): 각 스레드가 자신의 seq를 스캔 → 출력 위치 계산
+     thread 0: seq0 → 출력 위치 0~15
+     thread 1: seq1 → 출력 위치 16~28 (seq0 결과 필요 → prefix sum으로 계산)
+     thread 2: seq2 → 출력 위치 29~45
+     → warp-level prefix sum으로 모든 스레드의 출력 위치 동시 결정
+
+  2단계 (기록 패스): 각 스레드가 자신의 출력 범위에 기록
+     → back-reference 의존성이 없는 literal은 병렬 기록
+     → match는 의존성 해결 후 기록
+```
+
+#### 전략 3: 두 패스 해제 (nvCOMP ZStd 방식)
+
+```
+패스 1 (분석, 완전 병렬):
+  각 스레드 블록이 압축 스트림에서 토큰만 파싱
+  → 출력 오프셋, literal 위치, match 위치 메타데이터 생성
+  → 실제 데이터 복사 안 함
+
+패스 2 (기록):
+  메타데이터 기반으로 실제 출력 기록
+  back-reference 의존성이 해결된 경우 병렬 기록
+  → 긴 match는 여러 스레드가 나눠서 기록
+```
+
+---
+
+### 2-5. nvCOMP (NVIDIA 공식 라이브러리)
+
+NVIDIA가 제공하는 GPU 압축/해제 라이브러리. 배치(batch) API로 수천 개 청크를 한 번에 병렬 처리.
+
+```
+// ZStd 해제 예시 (nvCOMP Batched API)
 nvcompBatchedZstdDecompressAsync(
-  compressed_data_ptrs,    // 각 청크의 압축 데이터 포인터 배열
-  compressed_sizes,        // 각 청크 크기
-  output_ptrs,             // 출력 포인터 배열
-  output_sizes,            // 출력 버퍼 크기
-  num_chunks,              // 청크 수 (= 병렬 스레드 수)
-  stream                   // CUDA 스트림
+  compressed_data_ptrs,    // 각 청크의 압축 데이터 포인터 배열 (device memory)
+  compressed_sizes,        // 각 청크의 압축된 크기 배열
+  output_ptrs,             // 각 청크의 출력 버퍼 포인터 배열
+  output_sizes,            // 각 출력 버퍼 크기 배열
+  actual_decompressed_sizes, // 실제 해제된 크기 (output)
+  num_chunks,              // 총 청크 수
+  scratch,                 // 임시 작업 메모리
+  scratch_size,
+  statuses,                // 각 청크의 성공/실패 상태
+  stream                   // CUDA 스트림 (비동기 실행)
 );
+```
+
+**지원 알고리즘 및 특성**:
+```
+LZ4:      해제 속도 최우선. 컬럼 스캔처럼 해제가 핫패스일 때
+Snappy:   LZ4와 유사, Google 생태계 호환성
+ZStd:     압축률과 해제 속도 균형. DB 스토리지에 주로 선택
+Deflate:  zlib/gzip 호환 필요할 때 (해제 느림)
+Cascaded: nvCOMP 자체 경량 압축 (RLE + delta + bit-packing 조합), 정수 컬럼 특화
+Bitcomp:  nvCOMP 자체 비트 압축, 매우 빠른 해제
+```
+
+**Cascaded (nvCOMP 자체 형식)**:
+```
+정수 컬럼에 특화된 경량 압축을 GPU 친화적으로 설계:
+  1단계: delta encoding
+  2단계: RLE
+  3단계: bit-packing
+→ 각 단계가 GPU shared memory 내에서 처리 (tile-based와 유사한 접근)
+→ 압축률은 낮지만 해제가 극도로 빠름 (~100 GB/s 이상)
+→ 실시간 스트리밍 워크로드에 적합
 ```
 
 **GOLAP에서의 활용**:
 ```
 SSD → GPU HBM (GDS 직접 전송, CPU bypass)
          ↓
-GPU에서 nvCOMP로 ZStd 해제 (on-the-fly)
+nvCOMP ZStd 배치 해제 (수천 청크 동시)
          ↓
-해제된 데이터로 바로 scan/filter/join
+해제된 컬럼 데이터로 바로 scan/filter/join
 ```
+
 CPU가 해제 병목이 되는 걸 GPU로 옮김 → 유효 대역폭 2.8× 향상.
+
+**GPU vs CPU 해제 속도 비교 (참고치)**:
+```
+ZStd 해제:
+  CPU (단일 코어): ~1.5 GB/s
+  CPU (32코어):   ~40 GB/s
+  GPU (A100):     ~200 GB/s  (nvCOMP, 충분한 청크 수)
+
+LZ4 해제:
+  CPU (단일 코어): ~4 GB/s
+  CPU (32코어):   ~100 GB/s
+  GPU (A100):     ~350 GB/s  (nvCOMP)
+
+→ GPU가 CPU 단일 코어 대비 100×, 멀티코어 대비 5~7× 빠름
+→ PCIe 대역폭(28 GB/s)보다 GPU 해제 속도가 훨씬 빠름
+  → 해제 자체가 병목이 되는 경우는 없음, IO가 병목
+```
 
 ---
 
