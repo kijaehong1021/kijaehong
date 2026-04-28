@@ -204,48 +204,143 @@ join (두 테이블의 dictionary 컬럼):
 
 LZ4, Snappy, ZStd 모두 **LZ77** 알고리즘을 기반으로 함. 핵심 아이디어는 이미 나온 패턴을 다시 쓰지 않고 "앞에 있던 거 참조해"라는 포인터로 대체하는 것.
 
+#### 압축 과정 (step-by-step)
+
 ```
-LZ77 개념:
-  슬라이딩 윈도우(최근 N바이트)를 유지
-  현재 위치에서 윈도우 안의 패턴과 일치하는 가장 긴 문자열 탐색
+원본: "abcde_abcde_abcde"  (17바이트)
 
-원본: "abracadabra"
-       ^---- 앞에서 "abra"가 이미 나옴
+슬라이딩 윈도우 방식으로 왼쪽부터 스캔:
 
-압축:
-  "abracad"  →  literal 7바이트
-  + (offset=7, length=4)  →  7바이트 뒤에서 4글자 복사
+위치 0: 'a' → 윈도우에 없음 → literal
+위치 1: 'b' → 없음 → literal
+...
+위치 5: '_' → 없음 → literal
+        현재까지 "abcde_" = 6바이트 literal 누적
 
-해제:
-  "abracad" 출력
-  → 7바이트 뒤(=시작)에서 4글자 = "abra" 복사
-  결과: "abracadabra"
+위치 6: 'a' → 윈도우에서 "abcde" 패턴 탐색!
+              pos=0에서 시작하는 "abcde"와 일치 → 얼마나 길게 이어지나?
+              pos=0: a=a, b=b, c=c, d=d, e=e, _=_ → 6글자 일치!
+              match (offset=6, length=6) 기록
+
+위치 12: 'a' → 윈도우에서 탐색
+               pos=6에서 "abcde_" 다시 일치 → match (offset=6, length=5)
+               (마지막 글자 없으면 5)
+
+압축 결과: [literal "abcde_"] [match offset=6, len=6] [match offset=6, len=5]
+원본 17바이트 → 압축 결과 몇 바이트 (표현 방식에 따라 다름)
 ```
 
-**토큰 구조 (LZ4 기준)**:
+#### LZ4 토큰 포맷과 실제 바이트 예시
+
+LZ4의 압축 스트림은 **시퀀스(sequence)** 의 연속. 각 시퀀스 = literal 묶음 + match 1개.
+
 ```
-각 시퀀스 = [token 1바이트] [literal 길이 확장] [literal 데이터] [오프셋 2바이트] [match 길이 확장]
+각 시퀀스 바이트 배열:
+  [token: 1B] [literal_len_ext: 0~NB] [literals: NB] [offset: 2B] [match_len_ext: 0~NB]
 
 token (1바이트):
-  상위 4비트: literal 길이 (0~14, 15면 다음 바이트에 연장)
-  하위 4비트: match 길이 - 4 (0~14, 15면 다음 바이트에 연장)
+  ┌────────────────┬────────────────┐
+  │  상위 4비트     │  하위 4비트     │
+  │  literal 길이   │  match 길이-4  │
+  └────────────────┴────────────────┘
 
-예:
-  token = 0x31
-  → 상위 3 = literal 3바이트
-  → 하위 1 = match 5바이트 (1+4)
-  → [3바이트 literal] [2바이트 오프셋] [match 5바이트]
+  상위/하위가 15(=0xF)이면 다음 바이트에 추가 길이 저장 (255씩 더함, 0이 아닌 값으로 종료)
 ```
 
-**해제 과정 (순차적)**:
+**실제 예시: "hello world hello world" 압축**
+
 ```
-반복:
-  1. token 읽기 → literal 길이, match 길이 파악
-  2. literal 바이트들을 출력 버퍼에 그대로 복사
-  3. 오프셋 읽기 → match_pos = 현재 출력 위치 - offset
-  4. 출력 버퍼[match_pos .. match_pos+length]를 현재 위치에 복사
-     ※ 자기 자신을 참조하는 경우도 있음 (overlapping copy)
+원본 (22바이트):
+  h e l l o   w o r l d   h e l l o   w o r l d
+  0 1 2 3 4 5 6 7 8 9 A B C D E F 10 11 12 13 14 15
+
+--- 시퀀스 1 ---
+위치 0~11: "hello world " → 12바이트 literal (윈도우에 없음)
+위치 12~21: "hello world" → 12바이트 앞(offset=12)에서 10글자 일치 → match
+
+token:
+  literal 길이 = 12 → 상위 4비트 = 0xC (12이지만 15 미만이므로 확장 없음)
+  match 길이   = 10 → 하위 4비트 = 10-4 = 6
+
+  token = 0xC6
+
+압축 바이트 스트림:
+  [0xC6]                  ← token
+  [h,e,l,l,o, ,w,o,r,l,d, ] ← 12바이트 literal
+  [0x0C, 0x00]            ← offset=12 (little-endian 2바이트)
+  (match_len_ext 없음, 하위 4비트 6으로 충분)
+
+총 압축 크기: 1 + 12 + 2 = 15바이트 (원본 22 → 68% 크기)
 ```
+
+#### 해제 과정 (step-by-step)
+
+```
+압축 스트림: [0xC6] [h,e,l,l,o, ,w,o,r,l,d, ] [0x0C, 0x00]
+출력 버퍼:   (비어있음)
+
+Step 1: token = 0xC6 읽기
+  literal_len = 상위 4비트 = 0xC = 12
+  match_len   = 하위 4비트 + 4 = 6 + 4 = 10
+
+Step 2: literal 12바이트 읽어서 출력 버퍼에 그대로 복사
+  출력: "hello world "  (위치 0~11)
+
+Step 3: offset 읽기 = 0x0C 0x00 = 12 (little-endian)
+  match_pos = 현재 출력 위치(12) - offset(12) = 0
+
+Step 4: 출력[0..9] (10바이트)를 현재 위치(12)에 복사
+  출력[12] = 출력[0] = 'h'
+  출력[13] = 출력[1] = 'e'
+  ...
+  출력[21] = 출력[9] = 'd'
+
+최종 출력: "hello world hello world"  ✓
+```
+
+#### Overlapping copy (자기 참조) 예시
+
+offset < match_len 일 때 발생. memcpy로 처리 불가 — 반드시 1바이트씩 순서대로.
+
+```
+현재 출력 버퍼: "ab"  (위치 0~1)
+match: offset=1, length=6
+
+  out[2] = out[2-1] = out[1] = 'b'  → 출력: "abb"
+  out[3] = out[3-1] = out[2] = 'b'  → 출력: "abbb"  ← 방금 쓴 값 재사용!
+  out[4] = out[4-1] = out[3] = 'b'  → 출력: "abbbb"
+  out[5] = out[5-1] = out[4] = 'b'  → 출력: "abbbbb"
+  out[6] = out[6-1] = out[5] = 'b'  → 출력: "abbbbbb"
+  out[7] = out[7-1] = out[6] = 'b'  → 출력: "abbbbbbb"
+
+결과: 2바이트 → 8바이트로 확장 (RLE처럼 동작)
+
+이 때문에:
+  memcpy(out+2, out+1, 6) → 구현에 따라 다름, 보장 안 됨
+  for (i=0; i<6; i++) out[2+i] = out[2+i-1]  → 항상 정확
+```
+
+#### LZ4 압축 시 해시 테이블 활용
+
+압축기가 윈도우에서 패턴을 탐색할 때 매번 전체 스캔하면 O(N²). 실제로는 **해시 테이블**로 O(1) 탐색.
+
+```
+압축 중 유지하는 해시 테이블:
+  key   = 현재 4바이트의 해시
+  value = 해당 4바이트가 마지막으로 나온 위치
+
+위치 pos에서:
+  h = hash(input[pos..pos+3])
+  candidate = table[h]           ← 같은 해시의 이전 위치
+  table[h] = pos                 ← 현재 위치로 업데이트
+
+  if input[candidate..] == input[pos..] (최소 4바이트):
+    → match 발견! 얼마나 길게 이어지는지 확인
+  else:
+    → 해시 충돌 (false positive) → literal로 처리
+```
+
+이 덕분에 LZ4 압축 속도가 매우 빠름 (~500 MB/s 이상). 압축률보다 속도를 우선한 설계.
 
 ---
 
@@ -253,30 +348,90 @@ token (1바이트):
 
 ZStd = LZ77 + **엔트로피 코딩** 결합. LZ4보다 압축률이 높은 이유가 여기 있음.
 
-**LZ4 vs ZStd 차이**:
-```
-LZ4:
-  literal → 그대로 저장 (무압축)
-  match   → (offset, length) 토큰
+#### LZ4 vs ZStd: 같은 입력으로 비교
 
-ZStd:
-  literal → FSE(Finite State Entropy) 또는 Huffman으로 추가 압축
-  match   → ANS 코딩으로 추가 압축
-  → 같은 입력에서 더 높은 압축률
+```
+원본: "aaabbbaaaccc"  (12바이트)
+심볼 빈도: a=6, b=3, c=3
+
+--- LZ4 처리 ---
+LZ 분석:
+  "aaabbb" → literal 6바이트 (처음 등장)
+  "aaa"    → offset=6, length=3 (앞의 "aaa" 재사용)
+  "ccc"    → literal 3바이트 (처음 등장)
+
+저장:
+  [token] [literal "aaabbb"] [offset=6] [token] [literal "ccc"]
+  literal은 그대로 ASCII 저장 → 'a'=0x61, 'b'=0x62, 'c'=0x63
+
+--- ZStd 처리 ---
+LZ 분석: LZ4와 동일한 시퀀스 탐색
+
+Huffman 추가 압축 (literal에 적용):
+  빈도 분석: a(6회), b(3회), c(3회)
+  Huffman 코드 생성:
+    a → 0      (1비트, 가장 빈번)
+    b → 10     (2비트)
+    c → 11     (2비트)
+
+  literal "aaabbb":
+    LZ4: 6바이트 (48비트)
+    ZStd: 000 + 101010 = 0001 0101 0 → 9비트 ≈ 2바이트
+
+  literal "ccc":
+    LZ4: 3바이트 (24비트)
+    ZStd: 111111 = 6비트 → 1바이트
+
+ZStd 총 크기: Huffman 테이블 + 압축 시퀀스 → LZ4보다 작음
+(단, 짧은 입력에서는 Huffman 테이블 오버헤드가 클 수 있음 → 실제론 64KB+ 입력에서 효과 큼)
 ```
 
-**FSE (Finite State Entropy)**:
+#### FSE (Finite State Entropy)
+
 ANS(Asymmetric Numeral Systems) 기반 엔트로피 코딩. Huffman보다 이론적 한계에 더 가까운 압축률을 달성하면서 해제 속도도 빠름.
 
 ```
-Huffman: 각 심볼에 정수 비트 수 배정 (예: 'a' → 3비트, 'b' → 5비트)
-         → 최적 비트 수가 비정수면 낭비 발생
+Huffman의 한계:
+  심볼 'a'가 전체의 1/3 확률 → 이상적 비트 수 = log2(3) ≈ 1.58비트
+  Huffman은 정수 비트만 배정 가능 → 2비트 배정 → 0.42비트 낭비
 
-FSE/ANS: 상태 기계(state machine)로 심볼 인코딩
-         → 비정수 비트 배정 가능 → 이론적 최솟값(엔트로피)에 근접
-         → 해제: 상태 테이블 참조만으로 O(1)
+FSE/ANS:
+  상태 기계(state machine)로 심볼 인코딩
+  → 비정수 비트 배정 가능 → 이론적 최솟값(엔트로피)에 근접
+  → 여러 심볼을 합쳐서 분수 비트 효과 구현
 
-해제 속도: 테이블 룩업이라 매우 빠름 → GPU에서도 효율적
+FSE 해제 (상태 테이블 기반):
+  state = 초기값
+  반복:
+    symbol   = table[state].symbol   ← 상태만 보고 심볼 결정 (O(1))
+    num_bits = table[state].num_bits ← 다음에 읽을 비트 수
+    state    = table[state].new_state_base + read_bits(num_bits)
+  → 테이블 룩업 1번 + 비트 읽기 1번 → 매우 빠름, GPU에서 효율적
+```
+
+#### ZStd 블록 구조
+
+ZStd는 **프레임 → 블록** 계층 구조. 블록 단위로 독립 압축 가능.
+
+```
+ZStd 프레임:
+  [Magic: 4B] [Frame Header] [Block 0] [Block 1] ... [Checksum: 4B]
+
+각 블록:
+  [Block Header: 3B]
+    - 하위 1비트: Last_Block 여부
+    - 다음 2비트: Block_Type (Raw/RLE/Compressed/Reserved)
+    - 나머지: Block_Size
+
+Block_Type = Compressed 일 때 내부 구조:
+  [Literals Section]   ← literal 데이터 (Huffman/FSE/Raw 중 선택)
+  [Sequences Section]  ← LZ match 시퀀스들 (offset, match_len, literal_len을 FSE 코딩)
+
+Sequences 해제 순서:
+  1. FSE 테이블 복원 (블록 헤더에 저장된 정보로)
+  2. 각 시퀀스: (literal_len, offset, match_len) 세 값을 FSE로 동시 디코딩
+     → 세 개의 독립 FSE 상태 기계가 interleaved로 동작 (파이프라인 효율)
+  3. literal 복사 → match 복사 반복
 ```
 
 **ZStd 압축 레벨**:
@@ -286,7 +441,21 @@ FSE/ANS: 상태 기계(state machine)로 심볼 인코딩
 레벨 19 (best):    압축률 ~5×, CPU 압축 ~10 MB/s
 
 해제 속도는 레벨과 무관하게 항상 빠름 (~1.5 GB/s on CPU, ~10 GB/s on GPU)
-→ 압축은 오프라인, 해제는 온라인 → 압축 시 시간 들여도 이득
+→ 압축은 오프라인에서 한 번, 해제는 쿼리마다 온라인 → 레벨 높여도 이득
+```
+
+#### LZ4 vs ZStd 실전 선택
+
+```
+LZ4 선택:
+  - 해제가 초저지연(μs 단위) 필요
+  - 압축률보다 CPU/GPU 해제 처리량이 중요
+  - 스트리밍 분석처럼 해제가 핫패스
+
+ZStd 선택:
+  - SSD/네트워크 IO가 병목 → 압축률로 IO 감소가 더 이득
+  - 압축은 오프라인 (배치 ETL 등)
+  - DB 컬럼 스토리지 (GOLAP, Parquet 등)에서 주로 선택
 ```
 
 ---
