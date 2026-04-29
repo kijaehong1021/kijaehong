@@ -883,22 +883,159 @@ nvCOMP 기본값: 64KB
 
 #### 전략 2: 청크 내 warp 협력 해제
 
-청크 하나를 단일 스레드가 아닌 **warp(32 스레드)가 협력**해서 처리.
+청크 하나를 단일 스레드가 아닌 **warp(32 스레드)가 협력**해서 처리. 핵심은 "출력 위치 계산"과 "실제 기록"을 분리하는 것.
+
+**왜 단일 스레드로는 느린가**:
 
 ```
-청크를 sub-sequence로 분할:
-  [seq0] [seq1] [seq2] ... (각 seq = literal + match 1개씩)
+LZ4 청크 하나 = 수백 개의 시퀀스 (literal + match)
+단일 스레드가 순차 처리:
+  seq0 처리 (literal 복사 + match 복사)
+  seq1 처리 (literal 복사 + match 복사)
+  seq2 처리 ...
+  → 시퀀스 수만큼 순차 실행, warp 내 다른 31개 스레드는 유휴
 
-2단계 처리:
-  1단계 (분석 패스): 각 스레드가 자신의 seq를 스캔 → 출력 위치 계산
-     thread 0: seq0 → 출력 위치 0~15
-     thread 1: seq1 → 출력 위치 16~28 (seq0 결과 필요 → prefix sum으로 계산)
-     thread 2: seq2 → 출력 위치 29~45
-     → warp-level prefix sum으로 모든 스레드의 출력 위치 동시 결정
+warp가 협력하면:
+  32개 시퀀스를 32개 스레드가 나눠서 동시 처리
+  → 이론상 32× 빠름 (단, 의존성 문제 해결 필요)
+```
 
-  2단계 (기록 패스): 각 스레드가 자신의 출력 범위에 기록
-     → back-reference 의존성이 없는 literal은 병렬 기록
-     → match는 의존성 해결 후 기록
+**문제: 출력 위치를 모른다**
+
+```
+시퀀스마다 출력 크기가 다름 (literal 길이 + match 길이 가변)
+
+thread 0: seq0 처리 → 출력 20바이트
+thread 1: seq1 처리 → 출력 11바이트  ← seq0이 끝나는 위치를 알아야 시작 위치 결정 가능
+thread 2: seq2 처리 → 출력 17바이트  ← seq0+seq1이 끝나는 위치를 알아야...
+
+→ 스레드가 서로의 출력 크기를 모르면 어디에 써야 할지 알 수 없음
+```
+
+**해결: 2패스 처리 (분석 → 기록)**
+
+```
+패스 1 - 출력 크기 계산 (완전 병렬):
+  warp 내 32개 스레드가 각자 담당 시퀀스의 토큰만 파싱
+  실제 데이터 복사 없이 "이 시퀀스의 출력 크기가 몇 바이트인지"만 계산
+
+  thread 0: seq0 파싱 → output_size[0] = 20
+  thread 1: seq1 파싱 → output_size[1] = 11
+  thread 2: seq2 파싱 → output_size[2] = 17
+  ...
+  thread 31: seq31 파싱 → output_size[31] = 9
+  → 32개 스레드 동시 실행, 완전 병렬
+
+패스 2 - Prefix Sum으로 출력 위치 결정:
+  warp-level prefix sum (warp shuffle 명령어 사용):
+
+  output_size:  [20, 11, 17, ..., 9]
+  prefix_sum:   [0,  20, 31, 48, ..., ?]
+                 ↑    ↑    ↑    ↑
+               seq0 seq1 seq2 seq3 의 시작 위치
+
+  thread i의 출력 시작 위치 = prefix_sum[i]
+  → 모든 스레드가 자신의 출력 위치를 동시에 확정
+
+패스 3 - 실제 기록 (부분 병렬):
+  각 스레드가 자신의 출력 위치에 독립적으로 기록
+
+  literal 기록: 완전 병렬
+    thread i가 seq_i의 literal을 output[prefix_sum[i]..] 에 복사
+    → 스레드 간 겹치는 구간 없음, 동시 실행 가능
+
+  match 기록: 의존성 확인 필요
+    match_src = output_pos - offset
+    if match_src >= prefix_sum[i]:
+      → 이 match의 소스가 같은 warp 내 다른 스레드의 출력 범위에 걸침
+      → 그 스레드가 먼저 써야 읽을 수 있음 → 동기화 필요
+    else:
+      → match 소스가 이미 확정된 구간 → 바로 복사 가능
+```
+
+**warp shuffle로 prefix sum 수행**:
+
+```
+GPU warp 내 스레드들은 레지스터를 서로 직접 읽을 수 있음 (__shfl_up_sync)
+global memory나 shared memory 거치지 않아도 됨 → 매우 빠름
+
+// CUDA 코드 예시
+int val = output_size[lane_id];  // 내 담당 시퀀스 출력 크기
+
+// warp-level inclusive prefix sum
+for (int delta = 1; delta < 32; delta <<= 1) {
+    int n = __shfl_up_sync(0xffffffff, val, delta);
+    if (lane_id >= delta) val += n;
+}
+
+int my_output_start = val - output_size[lane_id];  // exclusive prefix sum
+// → 각 스레드가 자신의 출력 시작 위치를 단 5번의 shfl로 계산 (log2(32)=5)
+```
+
+**match 의존성 처리 (overlapping back-reference)**:
+
+```
+문제 상황:
+  thread 2의 match 소스가 thread 1의 출력 범위에 걸침
+  thread 1이 아직 기록 안 했으면 잘못된 값을 읽게 됨
+
+해결 방법 1 - __syncwarp() 배리어:
+  모든 literal 기록 완료 → __syncwarp() → match 기록 시작
+  → literal과 match를 나눠서 두 라운드로 처리
+  → 오버헤드 있지만 안전
+
+해결 방법 2 - match 길이 제한:
+  match가 64바이트 이하면 warp 내 의존성 없음을 보장 (실험적으로)
+  → 짧은 match는 바로 처리, 긴 match만 직렬화
+
+해결 방법 3 - 의존성 비트맵:
+  각 스레드가 자신의 match 소스가 어느 스레드 출력인지 파악
+  → ballot()으로 의존 관계 비트맵 생성
+  → 위상 정렬 순서로 처리
+```
+
+**예시: "hello world hello world hello" 압축 해제**
+
+```
+LZ4 압축 결과 (1개 청크 내 3개 시퀀스):
+  seq0: [literal "hello world "] → 12바이트 literal, match 없음
+  seq1: [literal ""] match(offset=12, len=11) → "hello world"
+  seq2: [literal ""] match(offset=12, len=6)  → "hello"
+
+warp 협력 해제 (thread 0,1,2 담당):
+
+패스 1 - 크기 계산:
+  thread 0: seq0 파싱 → 12바이트 (literal 12 + match 0)
+  thread 1: seq1 파싱 → 11바이트 (literal 0 + match 11)
+  thread 2: seq2 파싱 → 5바이트  (literal 0 + match 5 ← "hello"만)
+
+패스 2 - prefix sum (shfl):
+  output_start: thread0=0, thread1=12, thread2=23
+
+패스 3 - 기록:
+  thread 0: output[0..11]  = "hello world "  (literal, 바로 복사)
+  thread 1: output[12..22] = output[0..10]   (match, offset=12 → src=0)
+              src=0은 thread 0의 출력 → thread 0 완료 후 가능
+              → __syncwarp() 후 복사
+  thread 2: output[23..27] = output[11..15]  (match, offset=12 → src=11)
+              → "hello"
+
+결과: "hello world hello world hello"  ✓
+총 처리: 3개 스레드 협력, 순차 대비 ~2× 빠름 (match 의존성으로 완전 3× 미달)
+```
+
+**실제 성능 특성**:
+
+```
+병렬 효율을 떨어뜨리는 요인:
+  1. 시퀀스 크기 불균등 → warp 내 일부 스레드가 먼저 끝나고 대기
+  2. match 의존성 → 배리어로 인한 직렬 구간
+  3. overlapping match → 해결 오버헤드
+
+효율이 높은 경우:
+  - 시퀀스가 많고 크기가 균등한 데이터
+  - match offset이 커서 의존성이 적은 경우 (소스가 이전 청크에 있음)
+  - literal 비율이 높은 데이터 (의존성 없어서 완전 병렬)
 ```
 
 #### 전략 3: 두 패스 해제 (nvCOMP ZStd 방식)
