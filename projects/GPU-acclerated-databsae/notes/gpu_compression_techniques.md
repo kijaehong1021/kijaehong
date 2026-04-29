@@ -1047,77 +1047,97 @@ int my_output_start = val - output_size[lane_id];  // exclusive prefix sum
 // → 각 스레드가 자신의 출력 시작 위치를 단 5번의 shfl로 계산 (log2(32)=5)
 ```
 
-**match 의존성 처리 (overlapping back-reference)**:
+**match 병렬화의 근본 제약: 소스가 먼저 쓰여야 한다**
 
 ```
-문제 상황:
-  thread 2의 match 소스가 thread 1의 출력 범위에 걸침
-  thread 1이 아직 기록 안 했으면 잘못된 값을 읽게 됨
+match copy의 핵심 제약:
+  output[dst .. dst+len] = output[dst-offset .. dst-offset+len]
+  → 소스(dst-offset)가 이미 output 버퍼에 쓰여있어야만 읽을 수 있음
 
-해결 방법 1 - __syncwarp() 배리어:
-  모든 literal 기록 완료 → __syncwarp() → match 기록 시작
-  → literal과 match를 나눠서 두 라운드로 처리
-  → 오버헤드 있지만 안전
+케이스 1: offset이 커서 소스가 이전 청크 또는 확정된 구간에 있을 때
+  seq1의 src = output[0..10], 이미 seq0이 완료해서 쓴 구간
+  → 병렬 복사 가능 ✓
 
-해결 방법 2 - match 길이 제한:
-  match가 64바이트 이하면 warp 내 의존성 없음을 보장 (실험적으로)
-  → 짧은 match는 바로 처리, 긴 match만 직렬화
+케이스 2: offset이 작아서 소스가 현재 처리 중인 구간에 걸릴 때
+  seq2의 src가 seq1이 아직 기록 중인 범위에 걸침
+  → seq1이 완전히 끝나야 seq2의 match 처리 가능
+  → 순차 강제 ✗
 
-해결 방법 3 - 의존성 비트맵:
-  각 스레드가 자신의 match 소스가 어느 스레드 출력인지 파악
-  → ballot()으로 의존 관계 비트맵 생성
-  → 위상 정렬 순서로 처리
+케이스 3: overlapping copy (offset < len)
+  output[100..107] = output[98..105]
+  → output[102]를 쓰기 전에 output[100]을 읽어야 하고,
+     output[103]을 쓰기 전에 output[101]을 읽어야 하고...
+     심지어 output[104] = output[102] → 방금 내가 쓴 값을 또 읽음
+  → 바이트 하나씩 순서대로만 가능, 병렬화 완전 불가 ✗
 ```
 
 **예시: "hello world hello world hello" 압축 해제**
 
 ```
-LZ4 압축 결과 (1개 청크 내 3개 시퀀스):
-  seq0: [literal "hello world "] → 12바이트 literal, match 없음
-  seq1: [literal ""] match(offset=12, len=11) → "hello world"
-  seq2: [literal ""] match(offset=12, len=6)  → "hello"
+LZ4 청크 내 3개 시퀀스:
+  seq0: literal "hello world "  (12바이트 literal, match 없음)
+  seq1: match(offset=12, len=11)  →  output[0..10] 복사  →  "hello world"
+  seq2: match(offset=18, len=5)   →  output[5..9]  복사  →  "world"
 
-warp 협력 해제 (thread 0,1,2 담당):
+warp 협력 (thread 0, 1, 2 담당):
 
-패스 1 - 크기 계산:
-  thread 0: seq0 파싱 → 12바이트 (literal 12 + match 0)
-  thread 1: seq1 파싱 → 11바이트 (literal 0 + match 11)
-  thread 2: seq2 파싱 → 5바이트  (literal 0 + match 5 ← "hello"만)
+패스 1 (사전 스캔, 순차):
+  seq 위치/크기 확정:
+  thread 0 담당: seq0, 출력 위치 0,  출력 크기 12
+  thread 1 담당: seq1, 출력 위치 12, 출력 크기 11
+  thread 2 담당: seq2, 출력 위치 23, 출력 크기 5
 
-패스 2 - prefix sum (shfl):
-  output_start: thread0=0, thread1=12, thread2=23
+패스 2 - literal 기록 (완전 병렬):
+  thread 0: output[0..11] = "hello world "  ← 완료
+  thread 1: (literal 없음)
+  thread 2: (literal 없음)
 
-패스 3 - 기록:
-  thread 0: output[0..11]  = "hello world "  (literal, 바로 복사)
-  thread 1: output[12..22] = output[0..10]   (match, offset=12 → src=0)
-              src=0은 thread 0의 출력 → thread 0 완료 후 가능
-              → __syncwarp() 후 복사
-  thread 2: output[23..27] = output[11..15]  (match, offset=12 → src=11)
-              → "hello"
+패스 3 - match 기록:
+  thread 1: src = output_start(1) - offset = 12 - 12 = 0
+            src 범위 [0..10] → thread 0이 이미 기록 완료 → 바로 복사 가능 ✓
+            output[12..22] = output[0..10] = "hello world"
 
-결과: "hello world hello world hello"  ✓
-총 처리: 3개 스레드 협력, 순차 대비 ~2× 빠름 (match 의존성으로 완전 3× 미달)
+  thread 2: src = 23 - 18 = 5
+            src 범위 [5..9] → thread 0 구간, 이미 완료 → 바로 복사 가능 ✓
+            output[23..27] = output[5..9] = "world"
+
+  두 match 모두 thread 0의 완료된 구간을 소스로 씀 → 동시 실행 가능!
+```
+
+```
+만약 seq1 match의 offset이 작았다면:
+  seq1: match(offset=5, len=11) → src = 12-5 = 7
+        src 범위 [7..17] → [7..11]은 thread 0 구간 OK, [12..17]은 thread 1 자신의 출력!
+        → overlapping: output[12]=output[7], output[13]=output[8], ...
+           output[17]=output[12] ← 방금 자신이 쓴 값
+        → 완전히 순차 처리 강제
 ```
 
 **실제 성능 특성**:
 
 ```
-병렬 효율을 떨어뜨리는 요인:
-  1. 파싱 자체가 순차 → 파서 스레드가 병목
-  2. 시퀀스 크기 불균등 → warp 내 일부 스레드가 먼저 끝나고 대기
-  3. match 의존성 → 배리어로 인한 직렬 구간
-  4. overlapping match (offset < len) → 순차 복사 강제
+warp 협력으로 병렬화 가능한 것:
+  ✓ literal 복사 (항상, 스레드 간 범위 겹침 없음)
+  ✓ 소스가 완전히 확정된 구간의 match (offset이 충분히 커서 이전 seq 범위 밖)
 
-효율이 높은 경우:
-  - literal 비율이 높은 데이터 → 복사가 대부분 → 병렬성 극대화
-  - match offset이 커서 청크 경계를 넘음 → warp 내 의존성 없음
-  - 시퀀스 크기가 균등한 데이터 → 스레드 간 부하 균등
+warp 협력으로도 병렬화 안 되는 것:
+  ✗ 소스가 현재 처리 중인 구간에 걸린 match → 해당 스레드 완료 대기
+  ✗ overlapping copy (offset < len) → 바이트 단위 순차 강제
+  ✗ 파싱 자체 (순차 의존성)
 
-결론: 청크 내 warp 협력의 진짜 가치
-  → 파싱은 어차피 순차, 병렬성은 복사 단계에서 나옴
-  → warp 협력은 복사 throughput을 높이는 것이 핵심
-  → LZ 해제의 진짜 대규모 병렬성은 청크 간에서 나옴 (수천~수만 청크 동시)
-  → 청크 내 warp 협력은 보조 수단
+데이터 유형별 병렬 효율:
+  literal 비율 높은 데이터 (JSON, 비반복 텍스트)
+    → match 적음 → 대부분 병렬 literal 복사 → warp 협력 효과 큼
+  match 많고 offset 큰 데이터 (주기가 긴 반복 패턴)
+    → 소스가 이미 확정된 구간 → match도 병렬 가능
+  match 많고 offset 작은 데이터 (RLE-like 반복)
+    → match 대부분 직렬화 → warp 협력 효과 거의 없음
+    → 이런 데이터는 RLE나 경량 압축이 훨씬 적합
+
+결론:
+  LZ 해제의 대규모 병렬성은 청크 간에서만 완전히 보장됨
+  warp 협력은 literal 복사 throughput을 높이는 것이 주목적
+  match 병렬화는 offset 크기에 따라 케이스 바이 케이스
 ```
 
 #### 전략 3: 두 패스 해제 (nvCOMP ZStd 방식)
