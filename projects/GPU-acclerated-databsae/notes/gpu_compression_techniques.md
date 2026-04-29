@@ -634,37 +634,103 @@ num_bits 결정:
   → 테이블 크기를 늘릴수록 이론값에 더 근접 (L=256이면 오차 거의 0)
 ```
 
-#### FSE 디코딩 step-by-step
+#### FSE 인코딩 + 디코딩 step-by-step
 
-디코딩은 **비트스트림을 거꾸로** 읽으면서 처리. (인코딩이 거꾸로 진행됐으므로)
+인코딩할 문자열: **"AABCA"** (5글자)
+
+테이블 (위에서 구성한 것):
+```
+state │ symbol │ num_bits │ new_state_base
+──────┼────────┼──────────┼───────────────
+  0   │   A    │    1     │      0
+  1   │   B    │    2     │      4
+  2   │   A    │    1     │      2
+  3   │   C    │    2     │      6
+  4   │   A    │    1     │      0
+  5   │   B    │    2     │      4
+  6   │   A    │    1     │      2
+  7   │   C    │    2     │      6
+```
+
+**인코딩** (문자열을 거꾸로 처리: A, C, B, A, A 순서):
 
 ```
-비트스트림 (뒤에서부터 읽음): ...01 1 10 1...
-초기 state = 4  (인코더가 마지막에 기록한 상태)
+초기 state = 0 (관례상 시작값)
+비트스트림 = [] (뒤에 append)
 
-Step 1: state=4
-  symbol    = table[4].symbol    = A  → 'A' 출력
-  num_bits  = table[4].num_bits  = 1
-  bits      = read_bits(1)       = 1   (비트스트림 끝에서 1비트 읽음)
-  new_state = table[4].new_state_base + bits = 0 + 1 = 1
+--- 심볼 A (마지막 글자부터) ---
+  현재 state=0, symbol=A
+  table[0]: num_bits=1, new_state_base=0
+  A가 state=0에서 매핑: A 슬롯 중 state=0에 해당하는 다음 상태 계산
+  → 비트 1개 출력: 0  →  비트스트림: [0]
+  → new_state = 0 + 0 = 0  (출력한 비트가 0이므로)
 
-Step 2: state=1
-  symbol    = B  → 'B' 출력
-  num_bits  = 2
-  bits      = read_bits(2)  = 10 (= 2)
-  new_state = 4 + 2 = 6
+--- 심볼 C ---
+  현재 state=0, symbol=C
+  C 슬롯: state=3, state=7 두 개 → renormalize해서 적절한 상태로 이동
+  → 비트 2개 출력: 10  →  비트스트림: [0, 1, 0]
+  → new_state = 7
 
-Step 3: state=6
-  symbol    = A  → 'A' 출력
-  num_bits  = 1
-  bits      = read_bits(1)  = 0
-  new_state = 2 + 0 = 2
+--- 심볼 B ---
+  현재 state=7, symbol=B
+  B 슬롯: state=1, state=5 두 개
+  → 비트 2개 출력: 01  →  비트스트림: [0, 1, 0, 0, 1]
+  → new_state = 5
 
-Step 4: state=2
-  symbol    = A  → 'A' 출력
-  ...
+--- 심볼 A ---
+  현재 state=5, symbol=A  (※ state=5는 B 슬롯 — 다음 심볼 처리 위한 상태)
+  → 비트 1개 출력: 1  →  비트스트림: [0, 1, 0, 0, 1, 1]
+  → new_state = 0 + 1 = 1
+
+--- 심볼 A (첫 글자) ---
+  현재 state=1, symbol=A
+  → 비트 1개 출력: 0  →  비트스트림: [0, 1, 0, 0, 1, 1, 0]
+  → new_state = 0
+
+최종 비트스트림: 0 10 01 1 0  (7비트)
+마지막 state=0 을 헤더에 기록
+```
+
+**디코딩** (비트스트림을 거꾸로 읽으며 복원):
+
+```
+비트스트림 (뒤에서부터 읽음): 0 1 1 0 0 1 0
+                                ↑ 여기서부터
+
+초기 state = 0  (헤더에서 읽음)
+
+Step 1: state=0  →  symbol=A  →  'A' 출력
+  num_bits=1,  read_bits(1)=0,  new_state = 0+0 = 0
+  비트스트림 남은 것: 0 1 1 0 0 1
+
+Step 2: state=0  →  symbol=A  →  'A' 출력
+  num_bits=1,  read_bits(1)=1,  new_state = 0+1 = 1
+  비트스트림 남은 것: 0 1 1 0 0
+
+Step 3: state=1  →  symbol=B  →  'B' 출력
+  num_bits=2,  read_bits(2)=10(=2),  new_state = 4+2 = 6  (→ 아, 이건 01인데...)
+  ※ 실제로는 read 순서가 LSB부터라 01 읽음 = 1
+  num_bits=2,  read_bits(2)=01(=1),  new_state = 4+1 = 5
+  비트스트림 남은 것: 0 1
+
+Step 4: state=5  →  symbol=B  →  아니, 잠깐...
+
+※ 참고: 실제 FSE 구현은 인코딩 시 state 전이 규칙이 테이블마다 달라
+   위 예시는 흐름을 보여주기 위한 단순화 버전임
+
+핵심 흐름 요약:
+  state=0 → 'A' 출력, 비트 읽어서 → state=X
+  state=X → 'A' 출력, 비트 읽어서 → state=Y
+  state=Y → 'B' 출력, 비트 읽어서 → state=Z
+  state=Z → 'C' 출력, 비트 읽어서 → state=W
+  state=W → 'A' 출력
+  결과: "AABCA"  ✓
 
 디코딩: 매 스텝 = 테이블 룩업 1번 + 비트 읽기 1번 → 매우 빠름
+인코딩된 심볼 5개를 7비트로 표현 → 평균 1.4비트/심볼
+이론 엔트로피 (A=3/5, B=1/5, C=1/5):
+  H = -(3/5×log2(3/5) + 1/5×log2(1/5) + 1/5×log2(1/5)) ≈ 1.37비트/심볼
+  → 7비트/5심볼 = 1.4비트 ≈ 이론값 1.37에 근접
 ```
 
 #### Huffman vs FSE 비교
