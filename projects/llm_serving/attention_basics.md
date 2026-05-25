@@ -51,6 +51,132 @@ $$\text{MultiHead}(Q, K, V) = \text{Concat}(\text{head}_1, \ldots, \text{head}_h
 
 $$\text{head}_i = \text{Attention}(QW_i^Q, KW_i^K, VW_i^V)$$
 
+### 수식적 정식화 — Head를 정확히 무엇이 정의하는가
+
+#### 1. Tensor shape의 흐름
+
+입력 $X \in \mathbb{R}^{n \times d_{\text{model}}}$ (n개 token, 각 d_model 차원)
+
+**Step 1.** Linear projection으로 Q, K, V 생성:
+
+$$Q = X W^Q, \quad K = X W^K, \quad V = X W^V$$
+
+여기서 $W^Q, W^K, W^V \in \mathbb{R}^{d_{\text{model}} \times d_{\text{model}}}$
+
+→ $Q, K, V \in \mathbb{R}^{n \times d_{\text{model}}}$
+
+**Step 2.** Head별로 분할 (reshape):
+
+$$Q \to [Q_1, Q_2, \ldots, Q_h], \quad Q_i \in \mathbb{R}^{n \times d_k}$$
+
+이때 $d_k = d_{\text{model}} / h$. **수학적으로 이건 W^Q를 block partition한 것과 동등:**
+
+$$W^Q = [W_1^Q \mid W_2^Q \mid \cdots \mid W_h^Q]$$
+
+각 $W_i^Q \in \mathbb{R}^{d_{\text{model}} \times d_k}$. 따라서:
+
+$$Q_i = X W_i^Q$$
+
+즉 **head i는 W^Q의 i번째 column block에 의해 정의되는 subspace** 로의 projection.
+
+#### 2. Per-head 계산
+
+각 head는 독립적인 scaled dot-product attention:
+
+$$\text{head}_i = \text{softmax}\left(\frac{Q_i K_i^T}{\sqrt{d_k}}\right) V_i \in \mathbb{R}^{n \times d_v}$$
+
+여기서 핵심: **softmax는 head별로 따로 적용**. 이게 비선형성을 만들어내고, head들이 서로 다른 패턴을 학습하는 이유.
+
+#### 3. Concat + Output projection
+
+$$\text{MHA}(X) = \text{Concat}(\text{head}_1, \ldots, \text{head}_h) W^O$$
+
+여기서 $W^O \in \mathbb{R}^{(h \cdot d_v) \times d_{\text{model}}}$. W^O도 block partition 가능:
+
+$$W^O = \begin{bmatrix} W_1^O \\ W_2^O \\ \vdots \\ W_h^O \end{bmatrix}, \quad W_i^O \in \mathbb{R}^{d_v \times d_{\text{model}}}$$
+
+이 형태로 쓰면:
+
+$$\text{MHA}(X) = \sum_{i=1}^{h} \text{head}_i \cdot W_i^O$$
+
+**→ MHA는 h개의 head 출력의 합** (concat+행렬곱 = 부분곱의 합). 각 head는 **출력에 독립적으로 기여**한다는 게 수식적으로 명확해짐.
+
+#### 4. Rank 관점에서의 해석
+
+단일 head의 출력 $\text{head}_i \cdot W_i^O \in \mathbb{R}^{n \times d_{\text{model}}}$
+
+이건 다음 두 곱의 결과:
+- $\text{head}_i$: rank ≤ $d_v$
+- $W_i^O \in \mathbb{R}^{d_v \times d_{\text{model}}}$: rank ≤ $d_v$
+
+→ 한 head의 기여는 **최대 rank $d_v$짜리 행렬**
+
+전체 MHA 출력 = $h$개의 rank-$d_v$ 행렬의 합 → **최대 rank $h \cdot d_v = d_{\text{model}}$**
+
+**중요한 통찰:**
+- 단일 head로 d_model rank를 만들려면 $d_k = d_{\text{model}}$ 필요 → 비용 h배
+- Multi-head는 **저랭크 행렬들의 합으로 full-rank 변환** 구성 → 효율적
+
+이건 **low-rank decomposition** (LoRA 등)과 같은 원리:
+- $W \approx \sum_i u_i v_i^T$ 처럼 rank가 낮은 항들의 합으로 풍부한 변환 표현
+
+#### 5. Softmax가 없으면? — Multi-head의 본질
+
+만약 attention에서 softmax를 제거하면:
+
+$$\widetilde{\text{head}}_i = \frac{Q_i K_i^T}{\sqrt{d_k}} V_i = \frac{1}{\sqrt{d_k}} (X W_i^Q) (X W_i^K)^T (X W_i^V)$$
+
+이건 $X$에 대한 **선형 함수**. 여러 head를 합쳐도:
+
+$$\sum_i \widetilde{\text{head}}_i \cdot W_i^O = X \cdot (\text{어떤 큰 선형 변환})$$
+
+→ 단일 head로 만들 수 있는 것과 표현력이 같아짐.
+
+**Softmax의 비선형성이 head 다양성의 원천이다.** Head별로 softmax가 다른 위치에 peak를 만들기 때문에, 합쳐도 단일 head로 환원 불가.
+
+#### 6. Head 간 직교성? — 학습된 분리
+
+이론적으로는 $W_i^Q$들이 직교하도록 제약하지 않음 (학습으로 결정).
+
+실제 학습된 모델 분석:
+- Head들의 attention pattern은 **서로 다른** 경향 (cosine similarity 낮음)
+- Layer 깊이에 따라 다양화 정도 변화 (얕은 layer: 비슷, 깊은 layer: 다양)
+- Redundant head는 prune해도 성능 유지 (Voita et al. 2019, Michel et al. 2019)
+
+#### 7. 구체적 dimension 예시 (LLaMA-7B)
+
+| 변수 | 값 |
+|------|-----|
+| $d_{\text{model}}$ | 4096 |
+| $h$ | 32 |
+| $d_k = d_v$ | 128 |
+| $W^Q$ shape | [4096, 4096] |
+| 각 $W_i^Q$ shape | [4096, 128] |
+| $Q$ (reshape 전) | [n, 4096] |
+| $Q_i$ (head 분할 후) | [n, 128] |
+| Attention map per head | [n, n] |
+| head_i 출력 | [n, 128] |
+| Concat 출력 | [n, 4096] |
+| MHA 최종 출력 | [n, 4096] |
+
+#### 8. Forward 계산 그래프 (정확한 수식)
+
+각 token 위치 $t$에서, head $i$의 출력:
+
+$$\text{head}_i[t] = \sum_{s=1}^{n} \alpha_i^{t,s} \cdot V_i[s]$$
+
+attention weight:
+
+$$\alpha_i^{t,s} = \frac{\exp(Q_i[t] \cdot K_i[s] / \sqrt{d_k})}{\sum_{s'=1}^{n} \exp(Q_i[t] \cdot K_i[s'] / \sqrt{d_k})}$$
+
+최종 출력 (token t에서):
+
+$$\text{MHA}[t] = \sum_{i=1}^{h} \text{head}_i[t] \cdot W_i^O$$
+
+→ 한 token의 출력은 (h heads) × (n positions) 만큼의 가중합으로 결정됨.
+
+---
+
 ### 왜 여러 head를 쓰는가? — 동기와 직관
 
 #### 동기 1: Softmax의 "단일 모드" 한계
