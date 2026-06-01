@@ -16,11 +16,93 @@ LLaMA-70B를 full fine-tuning:
 
 ---
 
-## 2. LoRA의 핵심 아이디어
+## 2. Rank란 무엇인가?
+
+LoRA를 이해하려면 먼저 행렬의 rank 개념이 필요.
+
+### 직관: 행렬이 담은 실질적 독립 정보의 수
+
+```
+A = [1  2  3]     ← 3개 열이 있지만...
+    [2  4  6]       2행 = 1행 × 2  (종속)
+    [3  6  9]       3행 = 1행 × 3  (종속)
+
+→ 독립적인 행은 1개뿐  →  rank(A) = 1
+```
+
+```
+B = [1  0  0]
+    [0  1  0]       모든 행이 서로 독립
+    [0  0  1]
+
+→ rank(B) = 3  (full rank)
+```
+
+### 기하학적 의미
+
+rank = **이 행렬이 입력 벡터를 몇 차원 공간으로 보내는가**
+
+```
+rank 1 행렬: 어떤 입력이 들어와도 출력은 항상 한 직선 위
+rank 2 행렬: 출력이 2차원 평면 위
+rank r 행렬: 출력이 r차원 subspace에 놓임
+full rank:   출력이 d차원 전체를 채움
+```
+
+### rank가 낮은 행렬 = 두 작은 행렬의 곱
+
+rank-r 행렬은 항상 두 개의 작은 행렬 곱으로 분해 가능:
+
+```
+M ∈ R^{d × d},  rank(M) = r
+
+M = B · A    where  B ∈ R^{d × r},  A ∈ R^{r × d}
+
+파라미터 수:
+  M:   d × d  =  4096 × 4096  =  16,777,216
+  B+A: 2 × d × r  =  2 × 4096 × 8  =  65,536   (r=8)
+```
+
+이게 SVD(특이값 분해)와 같은 원리:
+
+```
+M ≈ U · Σ_r · V^T
+
+  U   ∈ R^{d × r}   ← B에 해당
+  Σ_r ∈ R^{r × r}   ← 스케일 (α/r에 흡수)
+  V^T ∈ R^{r × d}   ← A에 해당
+```
+
+---
+
+## 3. LoRA의 핵심 아이디어
 
 ### 관찰: Weight 변화량은 low-rank
 
 사전학습 모델을 fine-tuning할 때 weight 변화 ΔW는 **rank가 낮다** (실험적으로 관찰).
+
+ΔW의 특이값(singular value) 분포를 보면:
+
+```
+ΔW ∈ R^{4096 × 4096}   ← 이론상 최대 rank 4096
+
+실제 fine-tuning 후 특이값 분포:
+  σ₁ = 1.23  ←  크다 (중요한 방향)
+  σ₂ = 0.87
+  σ₃ = 0.45
+  σ₄ = 0.12
+  σ₅ = 0.003  ←  거의 0 (무의미)
+  σ₆ = 0.001
+  ...
+  σ₄₀₉₆ ≈ 0
+
+→ 의미 있는 singular value는 앞의 몇 개뿐
+→ ΔW는 실질적으로 low-rank
+→ BA로 근사해도 정보 손실이 거의 없음
+```
+
+**LoRA의 핵심 가정**:
+> "70B 파라미터를 다 바꿀 필요 없이, 실제로 중요한 방향 8~16개만 바꿔도 된다"
 
 ```
 Full fine-tuning:
@@ -30,7 +112,7 @@ LoRA:
   W' = W + ΔW ≈ W + BA   where B ∈ R^{d × r}, A ∈ R^{r × d},  r << d
 ```
 
-ΔW를 직접 학습하는 대신 **두 개의 작은 행렬 B, A의 곱**으로 근사.
+ΔW를 직접 학습하는 대신 **두 개의 작은 행렬 B, A의 곱**으로 근사 (위의 low-rank 분해 원리 그대로).
 
 Plain 표기:
 
@@ -50,7 +132,7 @@ $$h = xW + xA^TB^T = x(W + A^TB^T)$$
 - 초기화: A는 랜덤 Gaussian, B는 0 → 초기 ΔW = BA = 0 (학습 초기 원래 모델과 동일)
 - 스케일링: 실제론 `(α/r) · BA`로 스케일 (α는 하이퍼파라미터)
 
-### 파라미터 절감 계산
+### 파라미터 절감 계산 (섹션 2 내용 재확인)
 
 ```
 d = 4096 (LLaMA-7B attention projection)
@@ -63,7 +145,7 @@ LoRA (r=8):  B + A = d×r + r×d = 2 × 4096 × 8 = 65,536 파라미터
 
 ---
 
-## 3. 어디에 LoRA를 붙이는가?
+## 4. 어디에 LoRA를 붙이는가?
 
 Transformer의 어느 weight에 LoRA를 적용할지 선택 가능.
 
@@ -93,7 +175,7 @@ Attention의 Q, V projection에만 적용:
 
 ---
 
-## 4. 핵심 하이퍼파라미터
+## 5. 핵심 하이퍼파라미터
 
 ### rank (r)
 
@@ -125,7 +207,7 @@ LoRA layer에 dropout 추가 → 과적합 방지:
 
 ---
 
-## 5. Inference 시 — Weight 병합
+## 6. Inference 시 — Weight 병합
 
 LoRA의 핵심 장점: 추론 시 **별도 overhead 없음**
 
@@ -147,7 +229,7 @@ base LLM + LoRA_C (의료 전문가)
 
 ---
 
-## 6. QLoRA — 양자화 + LoRA
+## 7. QLoRA — 양자화 + LoRA
 
 > "QLoRA: Efficient Finetuning of Quantized LLMs" (Dettmers et al., 2023)
 
@@ -211,7 +293,7 @@ gradient → optimizer state [CPU DRAM]
 
 ---
 
-## 7. LoRA 변형들
+## 8. LoRA 변형들
 
 ### 7-1. LoRA+
 
@@ -250,7 +332,7 @@ rank-stabilized LoRA: 스케일링을 `α/r` 대신 `α/√r`로:
 
 ---
 
-## 8. VLM에서의 LoRA 적용
+## 9. VLM에서의 LoRA 적용
 
 `[[vlm_multimodal]]` 와 연결:
 
@@ -274,7 +356,7 @@ VLM 특수 고려:
 
 ---
 
-## 9. 실제 학습 설정 예시
+## 10. 실제 학습 설정 예시
 
 ### LLaMA-3-8B + LoRA (일반 instruction tuning)
 
@@ -309,7 +391,7 @@ lora_config = {
 
 ---
 
-## 10. 성능 비교
+## 11. 성능 비교
 
 | 방법 | VRAM (7B) | VRAM (70B) | 성능 (vs full) |
 |------|-----------|------------|----------------|
@@ -322,7 +404,7 @@ task와 데이터에 따라 LoRA가 full fine-tuning과 **거의 동등**한 경
 
 ---
 
-## 11. 한계
+## 12. 한계
 
 - **Rank 선택 어려움**: task마다 최적 r이 다름, 실험 필요
 - **Multi-task**: 서로 다른 task의 LoRA를 합치면 성능 저하
