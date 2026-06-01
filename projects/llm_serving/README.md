@@ -21,6 +21,9 @@ LLM inference 최적화 / serving 시스템 학습 자료 정리
 ### 분산 Serving
 - [Disaggregated Serving](disaggregated_serving.md) — Prefill/Decode 분리 (DistServe, Splitwise)
 
+### Multimodal
+- [VLM 아키텍처 & Inference](vlm_multimodal.md) — Vision encoder, Connector, Training, Inference 최적화
+
 ## 학습 순서 제안
 
 1. `attention_basics` → attention의 수식과 O(n²) 문제 이해
