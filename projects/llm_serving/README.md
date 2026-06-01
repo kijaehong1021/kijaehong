@@ -24,6 +24,9 @@ LLM inference 최적화 / serving 시스템 학습 자료 정리
 ### Multimodal
 - [VLM 아키텍처 & Inference](vlm_multimodal.md) — Vision encoder, Connector, Training, Inference 최적화
 
+### Fine-tuning
+- [Low-Rank Adapter (LoRA & QLoRA)](low_rank_adapter.md) — LoRA 수식, QLoRA NF4, 변형들(DoRA/rsLoRA), VLM 적용
+
 ## 학습 순서 제안
 
 1. `attention_basics` → attention의 수식과 O(n²) 문제 이해
