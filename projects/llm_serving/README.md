@@ -20,6 +20,7 @@ LLM inference 최적화 / serving 시스템 학습 자료 정리
 
 ### 분산 Serving
 - [Disaggregated Serving](disaggregated_serving.md) — Prefill/Decode 분리 (DistServe, Splitwise)
+- [SGLang & RadixAttention](sglang_radix_cache.md) — Radix tree 기반 KV cache 공유, prefix 자동 감지
 
 ### Multimodal
 - [VLM 아키텍처 & Inference](vlm_multimodal.md) — Vision encoder, Connector, Training, Inference 최적화
