@@ -18,6 +18,9 @@ LLM inference 최적화 / serving 시스템 학습 자료 정리
 ### 처리량 / 지연 시간 최적화
 - [Quantization & Speculative Decoding](quantization_speculative_decoding.md) — AWQ, FP8, EAGLE/Medusa
 
+### 분산 Serving
+- [Disaggregated Serving](disaggregated_serving.md) — Prefill/Decode 분리 (DistServe, Splitwise)
+
 ## 학습 순서 제안
 
 1. `attention_basics` → attention의 수식과 O(n²) 문제 이해
@@ -26,3 +29,4 @@ LLM inference 최적화 / serving 시스템 학습 자료 정리
 4. `paged_attention_kv_cache` → 메모리 관리의 핵심
 5. `continuous_batching` → scheduling 측면
 6. `quantization_speculative_decoding` → 추가 최적화 기법
+7. `disaggregated_serving` → Prefill/Decode 분리 아키텍처
