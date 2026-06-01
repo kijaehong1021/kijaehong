@@ -138,26 +138,158 @@ K개의 learnable query가 visual feature에서 필요한 정보를 선택적으
 
 ### 3-3. Cross-Attention (Flamingo style)
 
-Visual token을 LLM의 **중간 layer에 cross-attention으로 주입**:
+#### 핵심 아이디어 — Self-Attention과 무엇이 다른가
+
+먼저 Self-Attention을 다시 보면:
 
 ```
-LLM Layer N:
-  text hidden state [n_text, d_model]
-          │
-          ▼ Self-Attention (text 내부)
-          │
-          ▼ Cross-Attention ← visual_features [N, d_vision]  (새 layer 추가)
-          │
-          ▼ FFN
-          │
-  출력 [n_text, d_model]
+Self-Attention:
+  Q = X · W^Q    ← X에서
+  K = X · W^K    ← X에서   (Q, K, V 모두 같은 소스)
+  V = X · W^V    ← X에서
+
+  결과: X의 각 위치가 X의 다른 위치를 참조
 ```
 
-특징:
-- LLM weight를 **frozen** 상태로 유지 가능 (cross-attn layer만 학습)
-- 이미지가 LLM 깊숙이 영향을 줌 → 강력한 visual grounding
-- 추가 cross-attention layer → 메모리 + 계산 증가
-- Few-shot learning에 강함
+**Cross-Attention은 Q와 K, V의 소스가 다르다:**
+
+```
+Cross-Attention:
+  Q = X_text · W^Q      ← text hidden state에서  (내가 뭘 찾는가)
+  K = X_vis  · W^K      ← visual feature에서     (이미지에서 뭘 제공하는가)
+  V = X_vis  · W^V      ← visual feature에서     (실제로 가져올 정보)
+
+  결과: text의 각 위치가 image의 위치들을 참조
+```
+
+수식:
+
+$$\text{CrossAttn}(X_{text}, X_{vis}) = \text{softmax}\left(\frac{(X_{text}W^Q)(X_{vis}W^K)^T}{\sqrt{d_k}}\right)(X_{vis}W^V)$$
+
+Plain 표기:
+
+```
+  Q = X_text · W^Q    ∈ R^{n_text × d_k}
+  K = X_vis  · W^K    ∈ R^{N_vis  × d_k}
+  V = X_vis  · W^V    ∈ R^{N_vis  × d_v}
+
+                Q · K^T
+  output = softmax( ─────── ) · V    ∈ R^{n_text × d_v}
+                   √d_k
+
+  Attention map shape: [n_text, N_vis]
+  → text의 각 token이 image의 N_vis개 patch에 얼마나 주목하는지
+```
+
+#### 구체적 예시 — "고양이의 색은?" 질문
+
+```
+query (text):  "고양이" token  → Q_고양이 = [0.3, 0.7, ...]
+
+image patches: [배경][배경][고양이 얼굴][고양이 몸][그릇][...]
+               K_0    K_1     K_2          K_3        K_4
+
+attention score (Q_고양이 · K_i):
+  배경: 0.1    배경: 0.1    고양이 얼굴: 0.9    고양이 몸: 0.8    그릇: 0.2
+
+softmax 후 attention weight:
+  배경: 0.03   배경: 0.03   고양이 얼굴: 0.41   고양이 몸: 0.37   그릇: 0.06
+
+output = 0.03·V_배경 + 0.03·V_배경 + 0.41·V_얼굴 + 0.37·V_몸 + 0.06·V_그릇
+       ≈ "주로 고양이 관련 patch의 visual feature" 가중합
+```
+
+→ "고양이" token이 이미지에서 고양이 patch를 스스로 찾아서 참조함
+
+#### Flamingo에서의 구조 — LLM 안에 삽입되는 위치
+
+기존 LLM block:
+
+```
+  text  →  [Self-Attn]  →  [FFN]  →  text'
+```
+
+Flamingo는 매 K개 LLM layer마다 Cross-Attn block을 **끼워넣음**:
+
+```
+              visual features (고정)
+                      │
+                      │ (K, V)
+                      ▼
+  text  →  [Self-Attn]  →  [Cross-Attn]  →  [FFN]  →  text'
+               ↑ text만 참조    ↑ image 참조
+               (LLM 원본)       (새로 추가된 layer)
+```
+
+전체 흐름:
+
+```
+LLM layer 1:   Self-Attn → Cross-Attn ← image   → FFN
+LLM layer 2:   Self-Attn → Cross-Attn ← image   → FFN
+LLM layer 3:   Self-Attn (Cross-Attn 없음)       → FFN
+LLM layer 4:   Self-Attn → Cross-Attn ← image   → FFN
+...
+```
+
+모든 layer에 넣지 않고 **매 K layer마다** 넣음 (Flamingo: 매 4번째 layer).
+
+#### 왜 Cross-Attention이 강한가 — Linear Proj과 비교
+
+**Linear Projection (LLaVA)**: visual token을 앞에 붙이고 끝
+
+```
+input:  [v1][v2]...[vN][text1][text2]...[textM]
+         ↑ 256개 visual token
+
+LLM Self-Attention:
+  text3이 이미지를 참조하려면
+  → Self-Attn에서 v1..vN 까지 256개를 attention
+  → LLM이 직접 이미지와 텍스트를 같은 공간에서 처리
+  → 문제: 이미지가 앞에 고정되어 있어 deep layer에서 영향이 희석될 수 있음
+```
+
+**Cross-Attention (Flamingo)**: 매 layer마다 이미지를 새로 참조
+
+```
+LLM의 4번째 layer, 8번째 layer, 12번째 layer... 에서
+매번 원본 visual feature를 직접 참조
+
+→ LLM이 아무리 깊어도 이미지 정보가 희석되지 않음
+→ "이미지가 LLM에 깊숙이 지속적으로 영향을 줌"
+```
+
+#### 학습 전략 — LLM Frozen
+
+```
+Visual Encoder [frozen]  →  visual features
+                                   │
+                         Cross-Attn layers [학습]  ← 새로 추가
+                                   │
+LLM layers [frozen]      +   Cross-Attn 출력 합산
+```
+
+LLM weight는 그대로 두고 **Cross-Attn layer만 학습** → 기존 LLM 능력 유지.
+
+이게 가능한 이유: Cross-Attn의 output을 **residual로 더함**:
+
+```
+  text' = text + gate · CrossAttn(text, image)
+                  ↑
+              학습 가능한 scalar (초기값 0)
+              → 처음에는 이미지 무시, 점점 학습되면서 이미지 반영
+```
+
+`gate`를 0으로 초기화하면 학습 초기에는 원래 LLM과 동일하게 동작 → 안정적 학습.
+
+#### 정리
+
+| | Self-Attention | Cross-Attention |
+|---|---|---|
+| Q 소스 | 자기 자신 | text hidden state |
+| K, V 소스 | 자기 자신 | image visual feature |
+| Attention map | [n_text, n_text] | [n_text, N_vis] |
+| 역할 | 시퀀스 내부 관계 | 다른 모달리티 참조 |
+| VLM에서 위치 | LLM 원래 구조 | 각 LLM block 안에 삽입 |
 
 대표: **Flamingo**, OpenFlamingo, Idefics
 
